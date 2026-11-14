@@ -137,9 +137,10 @@ def conclusion_sentence(trend: TrendResult) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Globe view: short labels. The colour of a region on the globe follows
-# `trend_direction`, so a trend whose interval includes zero is never shown
-# as an increase or a decrease.
+# Globe view: short labels. On the globe, color names the variable. The
+# arrow, badge and headline follow `trend_direction`, so a trend whose
+# interval includes zero is never shown as an increase or a decrease, and
+# its stripes are drawn faded.
 # ---------------------------------------------------------------------------
 
 APP_TITLE = "Earth Trend Detective"
@@ -147,6 +148,9 @@ APP_TITLE = "Earth Trend Detective"
 PROVISIONAL_TAG = "Provisional"
 
 COLOR_KEY_TITLE = "Color key"
+
+# Label of the faded sample in the color key.
+FADED_KEY_LABEL = "Faded: inconclusive"
 
 CHART_GUIDE = (
     "Monthly values show the swings from season to season. Annual means "
@@ -264,13 +268,16 @@ def band_label(trend: TrendResult) -> str:
     return f"{round(trend.confidence_level * 100)}% confidence band for the fitted trend"
 
 
-def stripes_legend(first_year: int, last_year: int) -> str:
-    """How yearly values are drawn inside each region on the globe."""
-    return (
-        f"Each stripe is one year, {first_year} to {last_year} from west to "
-        "east. Within a row, darker means a lower yearly average and "
+def stripes_legend(first_year: int, last_year: int, has_blank_years: bool = False) -> str:
+    """How yearly values are drawn in each variable's block on the globe."""
+    text = (
+        f"Each stripe is one year, {first_year} to {last_year} from left to "
+        "right. Within a row, darker means a lower yearly average and "
         "brighter means a higher one."
     )
+    if has_blank_years:
+        text += " A blank start means that record begins later."
+    return text
 
 
 def coverage_sentence(metadata: DatasetMetadata) -> str:

@@ -230,9 +230,37 @@ def test_start_page_shows_the_app_title():
 def test_color_key_is_drawn_with_the_colors_of_the_stripes():
     html = _page_html()
     # Stripes and key both take their colors from shade().
-    assert "color: shade(result.direction, t)" in html
-    assert "return shade(direction, t); });" in html
-    assert '["increase", "decrease", "inconclusive"].map' in html
+    assert "shade(v, result.direction, t)" in html
+    assert "return shade(v, direction, t); });" in html
+    # One ramp per variable, plus a faded sample for inconclusive results.
+    assert 'rampCss(v.id, "increase")' in html
+    assert 'rampCss(P.variables[0].id, "inconclusive")' in html
+
+
+def test_color_names_the_variable_and_inconclusive_results_are_faded():
+    html = _page_html()
+    for variable_id in VARIABLES:
+        assert re.search(rf"\b{variable_id}: \[\d+, \d+, \d+, \d+\]", html), variable_id
+    # Full color needs a direction, and a direction needs an interval that
+    # excludes zero (services/copy.trend_direction).
+    assert 'var clear = direction === "increase" || direction === "decrease";' in html
+    assert "c[1] * (clear ? 1 : FADED)" in html
+
+
+def test_region_clusters_light_up_and_lead_to_the_charts():
+    html = _page_html()
+    # Hub: every wire and block. Block: itself, its wire and the hub.
+    assert 'setHot(el, node.classList.contains("hub") ? "*" : node.getAttribute("data-v"));' in html
+    # A block opens the panel and glides to its own card.
+    assert 'openPanel(g.id, node.classList.contains("hub") ? null : node.getAttribute("data-v"));' in html
+    assert "glideTo(pbody, top);" in html
+    # The glide gives way to the visitor at once, and is skipped for reduced motion.
+    assert '["wheel", "touchstart", "pointerdown", "keydown"]' in html
+    assert "if (reduceMotion || Math.abs(top - from) < 2) { el.scrollTop = top; return; }" in html
+    # Blocks are 20% see-through and hubs 60%.
+    assert "text-align: left; opacity: 0.8;" in html
+    assert "background: rgba(8, 46, 30, 0.40);" in html
+    assert (COMPONENT / "archivo-black-latin.woff2").stat().st_size > 10_000
 
 
 def test_charts_panel_takes_two_fifths_of_a_laptop_window():

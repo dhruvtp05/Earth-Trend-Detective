@@ -132,6 +132,7 @@ def build_payload(as_of: date | None = None) -> dict:
     predictions: dict[str, dict[str, dict]] = {}
     variable_ids: list[str] = []
     years: list[int] = []
+    first_years: set[int] = set()
 
     for region in regions:
         region_id = region["id"]
@@ -146,6 +147,7 @@ def build_payload(as_of: date | None = None) -> dict:
             results[region_id][variable_id] = _result(inv)
             predictions[region_id][variable_id] = _prediction(inv, as_of)
             years += [first, last]
+            first_years.add(first)
             if variable_id not in variable_ids:
                 variable_ids.append(variable_id)
 
@@ -173,8 +175,14 @@ def build_payload(as_of: date | None = None) -> dict:
         "text": {
             "directions": copy_module.DIRECTION_LABELS,
             "series": copy_module.CHART_SERIES_LABELS,
-            "stripes": copy_module.stripes_legend(first_year, last_year) if years else "",
+            # Records that start later leave blank years in their stripes.
+            "stripes": (
+                copy_module.stripes_legend(first_year, last_year, len(first_years) > 1)
+                if years
+                else ""
+            ),
             "color_key": copy_module.COLOR_KEY_TITLE,
+            "faded_key": copy_module.FADED_KEY_LABEL,
             "chart_guide": copy_module.CHART_GUIDE,
             "provisional_tag": copy_module.PROVISIONAL_TAG,
             "provisional_notice": copy_module.PROVISIONAL_NOTICE,
