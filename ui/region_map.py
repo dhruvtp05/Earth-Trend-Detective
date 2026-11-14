@@ -95,4 +95,4 @@ def render_region_map(active_region_ids: list[str] | None = None) -> None:
         legend=dict(orientation="h", yanchor="bottom", y=0.01, xanchor="left", x=0.01),
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
