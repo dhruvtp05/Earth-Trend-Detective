@@ -45,7 +45,7 @@ def test_midwest_example_shows_result_chart_and_provisional_notice():
     assert "Provisional trend" in text
     assert "not measurements at a single place" in text
     assert len(app.metric) == 2
-    assert len(app.get("plotly_chart")) == 1
+    assert len(app.get("plotly_chart")) == 2
     assert len(app.get("download_button")) == 2
 
 
@@ -67,7 +67,7 @@ def test_compare_view():
     assert "Precipitation: the Midwest and the Southwest, 2005–2025" in text
     assert "does not test whether the two trends differ" in text
     assert len(app.metric) == 2
-    assert len(app.get("plotly_chart")) == 1
+    assert len(app.get("plotly_chart")) == 2
 
 
 def test_selection_is_preserved_and_short_period_suppresses_trend():
