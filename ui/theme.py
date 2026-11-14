@@ -1,55 +1,47 @@
 """
-Page-level styling: page width per screen, the two-panel results layout
-and the data panel's own light/dark mode.
+Page-level styling: the globe fills the whole browser window.
+
+Streamlit's header, toolbar, footer and page padding are hidden, and the
+globe component's frame is pinned to the viewport. The selectors below
+are Streamlit's own element names, which is why requirements.txt pins the
+Streamlit version: check this file when upgrading.
 """
 
 from __future__ import annotations
 
 import streamlit as st
 
-MAP_PANEL_KEY = "map_panel"
-DATA_PANEL_KEY = "data_panel"
+from .globe import STAGE_KEY
 
-_NARROW = """
-[data-testid="stMainBlockContainer"], .block-container { max-width: 46rem; }
-"""
+BACKGROUND = "#03050A"   # also set in .streamlit/config.toml
 
-_SPLIT = f"""
+_FULLSCREEN = f"""
+html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{
+    background: {BACKGROUND} !important;
+    overflow: hidden !important;
+}}
+header, footer, #MainMenu,
+[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"],
+[data-testid="stStatusWidget"], [data-testid="stSidebar"],
+[data-testid="stSidebarCollapsedControl"], [data-testid="stBottom"] {{
+    display: none !important;
+}}
 [data-testid="stMainBlockContainer"], .block-container {{
-    max-width: 96rem; padding-top: 3.5rem;
+    padding: 0 !important; margin: 0 !important; max-width: none !important;
 }}
-.st-key-{DATA_PANEL_KEY} {{
-    background: #FFFFFF; border: 1px solid #D9DDE4; border-radius: 14px;
-    padding: 1.1rem 1.3rem 1.3rem;
-}}
-/* Keep the map in view while the data panel scrolls (wide screens only). */
-@media (min-width: 900px) {{
-    [data-testid="stColumn"]:has(.st-key-{MAP_PANEL_KEY}) {{
-        position: sticky; top: 4rem; align-self: flex-start;
-    }}
-}}
-"""
-
-# Dark mode for the data panel alone. Inverting lightness and rotating the
-# hue back turns every element in the panel dark, including charts and
-# tables, while keeping blues blue and oranges orange.
-_DATA_DARK = f"""
-.st-key-{DATA_PANEL_KEY} {{
-    filter: invert(0.92) hue-rotate(180deg);
-    border-color: #C9CED6;
+.st-key-{STAGE_KEY} iframe {{
+    position: fixed !important;
+    top: 0; left: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    border: 0 !important;
+    z-index: 999990;
+    background: {BACKGROUND};
 }}
 """
 
 
-def _inject(css: str) -> None:
-    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
-
-
-def narrow_page() -> None:
-    """Single-column reading width for the landing and text screens."""
-    _inject(_NARROW)
-
-
-def split_page(data_dark: bool) -> None:
-    """Wide two-panel layout for the results screen."""
-    _inject(_SPLIT + (_DATA_DARK if data_dark else ""))
+def fullscreen_page() -> None:
+    """Remove the page chrome and pin the globe to the viewport."""
+    st.markdown(f"<style>{_FULLSCREEN}</style>", unsafe_allow_html=True)

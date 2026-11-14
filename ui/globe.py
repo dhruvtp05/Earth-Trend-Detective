@@ -1,11 +1,14 @@
 """
-Landing-screen globe: a rotating 3D Earth that turns to North America
-and highlights the study regions when "Explore regions" is pressed.
+The globe: the whole interface.
+
+Python prepares every region/variable result once and hands it to the
+globe component in a single payload. Ticking variables, the camera tour
+and the charts panel then run entirely in the browser, with no reruns.
 
 The globe library (globe.gl, MIT) and the NASA Blue Marble texture are
 stored in ui/globe_component/, so the app does not depend on an outside
-server. Region boxes, colours and names come from ui/region_map.py so
-the globe matches the flat map on the other screens.
+server. Every sentence and label that states a result comes from
+services/copy.py.
 """
 
 from __future__ import annotations
@@ -15,25 +18,32 @@ from pathlib import Path
 import streamlit as st
 import streamlit.components.v1 as components
 
-from . import region_map
+from services import catalog, copy as copy_module, investigate, section_a, section_b
+from services.contracts import Investigation
+
+STAGE_KEY = "globe_stage"
 
 _COMPONENT_DIR = Path(__file__).resolve().parent / "globe_component"
 _globe = components.declare_component("earth_globe", path=str(_COMPONENT_DIR))
 
 
-def globe_regions(available_ids: list[str]) -> list[dict]:
-    """Study regions that have saved data, in the shape the globe expects."""
+def _round(value: float) -> float:
+    """Five significant figures: enough for the charts, small to send."""
+    return float(f"{value:.5g}")
+
+
+def globe_regions() -> list[dict]:
+    """Study regions with saved data and a known box, in camera-tour order."""
     regions = []
-    for info in region_map.REGIONS:
-        if info["key"] not in available_ids:
-            continue
-        west, south, east, north = info["bbox"]
+    for region_id in catalog.tour_region_ids():
+        info = catalog.region_info(region_id)
+        west, south, east, north = info.bbox  # type: ignore[misc]
         regions.append(
             {
-                "id": info["key"],
-                "label": info["label"].split(": ", 1)[-1],
-                "description": info["desc"],
-                "color": info["color"],
+                "id": info.id,
+                "label": info.label,
+                "letter": info.letter,
+                "description": info.description,
                 "west": west,
                 "south": south,
                 "east": east,
@@ -43,20 +53,131 @@ def globe_regions(available_ids: list[str]) -> list[dict]:
     return regions
 
 
-def render(available_ids: list[str], height: int = 540) -> str | None:
-    """Show the globe. Returns a region id once, when the user picks one."""
-    value = _globe(
-        regions=globe_regions(available_ids),
-        height=height,
-        key="earth_globe",
-        default=None,
+def _result(inv: Investigation) -> dict:
+    """One region/variable result in the shape the globe component draws."""
+    meta, trend = inv.metadata, inv.trend
+    ok = trend.status == "ok" and trend.trend_per_decade is not None
+
+    annual: dict = {"years": [], "mean": [], "fit": [], "lo": [], "hi": []}
+    if trend.aggregated_dates and trend.aggregated_values:
+        annual["years"] = [when.year for when in trend.aggregated_dates]
+        annual["mean"] = [_round(value) for value in trend.aggregated_values]
+    if trend.fitted_values:
+        annual["fit"] = [_round(value) for value in trend.fitted_values]
+    # A band is drawn only when the analysis supplies one.
+    if trend.band_lower and trend.band_upper:
+        annual["lo"] = [_round(value) for value in trend.band_lower]
+        annual["hi"] = [_round(value) for value in trend.band_upper]
+
+    facts = [
+        ["Dataset", f"{meta.dataset_name}, version {meta.dataset_version}"],
+        ["Coverage", meta.coordinates_or_bounds],
+        ["Source grid", meta.spatial_resolution],
+        ["Months used", f"{trend.valid_count} (left out: {trend.excluded_count})"],
+        ["Method", trend.method],
+        ["Aggregation", trend.aggregation],
+    ]
+    notes = [copy_module.coverage_sentence(meta), meta.unit_note]
+    if not ok:
+        notes += trend.warnings
+
+    return {
+        "status": trend.status,
+        "direction": copy_module.trend_direction(trend),
+        "badge": copy_module.significance_badge(trend),
+        "badge_note": copy_module.significance_note(trend),
+        "label": meta.variable_label,
+        "unit": meta.unit,
+        "period": copy_module.period_label(trend),
+        "trend_text": copy_module.trend_value_text(trend),
+        "trend_unit": copy_module.trend_unit_label(trend),
+        "trend_unit_short": trend.trend_unit,          # for narrow screens
+        "interval_text": copy_module.interval_text(trend),
+        "confidence_percent": round(trend.confidence_level * 100),
+        "uncertainty": copy_module.uncertainty_sentence(trend),
+        "conclusion": copy_module.conclusion_sentence(trend),
+        "band_label": copy_module.band_label(trend) if annual["lo"] else "",
+        "monthly": {
+            "t": [round(p.date.year + (p.date.month - 0.5) / 12, 4) for p in inv.points],
+            "v": [_round(p.value) for p in inv.points],
+        },
+        "annual": annual,
+        "facts": facts,
+        "notes": [note for note in notes if note],
+        "source_url": meta.source_url,
+    }
+
+
+def build_payload() -> dict:
+    """Everything the globe shows, for every region and variable.
+
+    Each variable is analysed over all the years its saved file covers.
+    """
+    regions = globe_regions()
+    results: dict[str, dict[str, dict]] = {}
+    variable_ids: list[str] = []
+    years: list[int] = []
+
+    for region in regions:
+        region_id = region["id"]
+        results[region_id] = {}
+        for variable_id in catalog.variable_ids(region_id):
+            try:
+                first, last = section_a.available_years(region_id, variable_id)
+                inv = investigate.load(region_id, variable_id, first, last)
+            except section_a.DataUnavailableError:
+                continue
+            results[region_id][variable_id] = _result(inv)
+            years += [first, last]
+            if variable_id not in variable_ids:
+                variable_ids.append(variable_id)
+
+    # Catalog order first, so the tick boxes do not depend on file order.
+    known = [v for v in catalog.VARIABLES if v in variable_ids]
+    ordered = known + [v for v in variable_ids if v not in known]
+    first_year, last_year = (min(years), max(years)) if years else (0, 0)
+
+    return {
+        "regions": regions,
+        "variables": [
+            {
+                "id": variable_id,
+                "label": catalog.variable_label(variable_id),
+                "short": catalog.variable_short_label(variable_id),
+            }
+            for variable_id in ordered
+        ],
+        "results": results,
+        "first_year": first_year,
+        "last_year": last_year,
+        "provisional": bool(section_b.IS_PLACEHOLDER),
+        "text": {
+            "directions": copy_module.DIRECTION_LABELS,
+            "series": copy_module.CHART_SERIES_LABELS,
+            "stripes": copy_module.stripes_legend(first_year, last_year) if years else "",
+            "provisional_tag": copy_module.PROVISIONAL_TAG,
+            "provisional_notice": copy_module.PROVISIONAL_NOTICE,
+            "saved_data": copy_module.SAVED_DATA_NOTICE,
+            "short_record": copy_module.SHORT_RECORD_NOTE,
+            "uncertainty_guide": copy_module.UNCERTAINTY_GUIDE,
+        },
+    }
+
+
+def _data_signature() -> tuple:
+    """Changes whenever a saved data file is added, removed or edited."""
+    return tuple(
+        (path.name, path.stat().st_mtime_ns, path.stat().st_size)
+        for path in catalog.discover().values()
     )
-    if not isinstance(value, dict):
-        return None
-    # The component keeps its last value across reruns, so each click is
-    # acted on only once.
-    if value.get("nonce") == st.session_state.get("globe_nonce"):
-        return None
-    st.session_state["globe_nonce"] = value.get("nonce")
-    region = value.get("region")
-    return region if region in available_ids else None
+
+
+@st.cache_data(show_spinner=False)
+def _cached_payload(signature: tuple) -> dict:
+    return build_payload()
+
+
+def render() -> None:
+    """Show the full-screen globe (sized by ui/theme.py)."""
+    with st.container(key=STAGE_KEY):
+        _globe(payload=_cached_payload(_data_signature()), key="earth_globe", default=None)

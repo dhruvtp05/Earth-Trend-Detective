@@ -1,12 +1,12 @@
 # Earth Trend Detective
 
-An accessible dashboard that helps students and curious members of the public
-investigate long-term changes in NASA Earth science data.
+A full-screen interactive globe that helps students and curious members of the
+public investigate long-term changes in NASA Earth science data.
 
 Built for **NASA Space Apps**, *"Be An Earth System Trend Detective!"*, by a UIC
 Computer Science and Data Science team.
 
-For one region and one variable at a time, the app answers:
+For each region and variable, the app answers:
 
 - What is changing?
 - Where, and over what period?
@@ -14,11 +14,31 @@ For one region and one variable at a time, the app answers:
 - How uncertain is the estimated trend?
 - What can we reasonably conclude?
 
-It can also compare the same variable across two regions.
-
 > **Status:** the data is real NASA data. The trend numbers are provisional:
 > they come from a placeholder method until the team's statistical analysis is
-> integrated, and the app says so wherever they appear.
+> integrated. The charts panel carries a "Provisional" tag and explains this.
+
+## How it works
+
+1. The globe spins slowly with a single **Start** button.
+2. Start moves the camera to the Southwest (Region A), then the Midwest
+   (Region B), then settles on both. A click, tap or Esc skips ahead.
+3. Each region is drawn as rows of yearly stripes, one row per ticked variable
+   and one stripe per year. Brightness follows the yearly average. Colour
+   follows the trend: amber for an increase, violet for a decrease, and gray
+   when the 95% confidence interval includes zero. A gray row is labelled
+   "Inconclusive" and is never coloured as an increase or a decrease.
+4. A label on each region gives every ticked variable's trend, its unit and a
+   "Significant" or "Inconclusive" badge.
+5. Clicking a region, or switching on **Charts & details**, opens a panel with
+   monthly values, annual means, the fitted trend and its confidence band, the
+   confidence interval in words, the dataset details and the yearly values.
+
+The only controls are Start, one tick box per variable, the Charts & details
+switch (with a tab per region inside the panel) and close. On a phone the panel
+opens as a sheet over the lower part of the screen. If the device prefers
+reduced motion, the globe does not spin and Start goes straight to the final
+view. Without 3D graphics the tick boxes and the charts panel are shown alone.
 
 ## Live demo
 
@@ -64,7 +84,8 @@ The app reads these saved files; it does not make live requests.
 MERRA-2 is a reanalysis and GLDAS is a land-surface model. Their values are
 averages over a large area, not measurements at a station, and the app labels
 them that way. Each file's header holds the Giovanni link that reproduces it;
-the app shows that link on the evidence screen.
+the app shows that link in the charts panel. Each variable is analysed over all
+the years its file covers.
 
 To add a dataset, save the Giovanni CSV as
 `data/{region}_{variable}_region{letter}.csv`. It is discovered automatically;
@@ -75,12 +96,19 @@ add a label and definition in `services/catalog.py`.
 The statistical method belongs to the analysis team (Section B). The current
 stand-in in `services/section_b.py` averages each complete calendar year, fits
 ordinary least squares to the annual means and reports a 95% confidence
-interval for the slope from the t distribution. It reports no trend when fewer
-than 10 complete years are selected.
+interval for the slope from the t distribution. It also supplies the standard
+95% confidence band for the fitted line,
+`fitted ± t · s · sqrt(1/n + (x − x̄)² / Sxx)`. It reports no trend when fewer
+than 10 complete years are selected. Section B's method must supply its own
+band; the chart draws none otherwise.
+
+A trend is called "Significant" only when its 95% confidence interval excludes
+zero. That says nothing about how large or important the change is.
 
 The interface never:
 
 - shows an invented confidence percentage,
+- colours a trend as an increase or a decrease when its interval includes zero,
 - says "no change" because a result is not statistically significant,
 - presents a historical trend as a prediction or as evidence of a cause,
 - draws a confidence band that the analysis did not supply,
@@ -89,18 +117,12 @@ The interface never:
 ## Project structure
 
 ```
-app.py                  entry point and routing
+app.py                  entry point: shows the globe
 ui/
-  explore.py            landing and selection screens
-  globe.py              rotating 3D globe on the landing screen
-  globe_component/      globe library, NASA Blue Marble texture, credits
-  region_map.py         flat map of the two study regions
-  focus_map.py          pan-and-zoom map beside the results (no place names)
-  map_component/        map library and credits
-  theme.py              page widths, two-panel layout, data panel dark mode
-  results.py            data panel: controls, result, chart types, downloads
-  compare.py            two regions side by side
-  evidence.py           dataset, method and sources
+  globe.py              prepares every result once and sends it to the globe
+  globe_component/      the globe page (index.html), globe library, NASA Blue
+                        Marble textures, credits
+  theme.py              hides Streamlit's page chrome so the globe fills the window
 services/
   contracts.py          shared data structures (Sections A, B and C)
   catalog.py            regions, variables and data file discovery
@@ -109,9 +131,13 @@ services/
   investigate.py        combines data and analysis for the interface
   copy.py               every sentence that states a scientific result
 data/                   saved NASA Giovanni exports
-tests/                  data, method, wording and click-through tests
+tests/                  data, method, wording and globe payload tests
 docs/                   product plan and research notes
 ```
+
+The globe runs entirely in the browser after one payload from Python, so
+ticking variables and opening charts never reloads the page. `requirements.txt`
+pins Streamlit because `ui/theme.py` relies on Streamlit's element names.
 
 ## AI use disclosure
 

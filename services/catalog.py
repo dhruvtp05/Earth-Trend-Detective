@@ -31,6 +31,11 @@ class RegionInfo:
     id: str
     label: str            # short, e.g. "Midwest"
     description: str      # what a newcomer would recognise
+    # Study box requested from Giovanni: (west, south, east, north) in
+    # degrees. None for a region the catalog does not know, which is then
+    # not drawn on the globe.
+    bbox: tuple[float, float, float, float] | None = None
+    letter: str = ""      # "A" or "B", as in the data file names
 
 
 @dataclass(frozen=True)
@@ -46,6 +51,8 @@ class VariableInfo:
     unit_note: str = ""
     # Multiplier applied to the file's values to reach `unit`.
     scale: float = 1.0
+    # One or two words for tight spaces such as the globe's tick boxes.
+    short_label: str = ""
 
 
 REGIONS: dict[str, RegionInfo] = {
@@ -53,18 +60,26 @@ REGIONS: dict[str, RegionInfo] = {
         id="midwest",
         label="Midwest",
         description="Great Lakes area, including Chicago",
+        bbox=(-93.0, 40.0, -76.0, 49.0),
+        letter="B",
     ),
     "southwest": RegionInfo(
         id="southwest",
         label="Southwest",
         description="Colorado River Basin area, including Arizona",
+        bbox=(-115.0, 31.0, -106.0, 40.0),
+        letter="A",
     ),
 }
+
+# Order of the globe's camera tour: Region A, then Region B.
+TOUR_ORDER = ("southwest", "midwest")
 
 VARIABLES: dict[str, VariableInfo] = {
     "precip": VariableInfo(
         id="precip",
         label="Precipitation",
+        short_label="Precipitation",
         definition=(
             "Average daily precipitation (rain plus snow, as liquid water) "
             "in each month, averaged over the region."
@@ -78,6 +93,7 @@ VARIABLES: dict[str, VariableInfo] = {
     "evap": VariableInfo(
         id="evap",
         label="Evaporation from land",
+        short_label="Evaporation",
         definition=(
             "Water returned from the land to the air, from soil, plants and "
             "surface water, as an average daily amount in each month, "
@@ -99,6 +115,7 @@ VARIABLES: dict[str, VariableInfo] = {
     "soilmoisture": VariableInfo(
         id="soilmoisture",
         label="Soil moisture (top 10 cm)",
+        short_label="Soil moisture",
         definition=(
             "Amount of water held in the top 10 cm of soil in each month, "
             "averaged over the region."
@@ -116,6 +133,7 @@ VARIABLES: dict[str, VariableInfo] = {
     "runoff": VariableInfo(
         id="runoff",
         label="Storm surface runoff",
+        short_label="Runoff",
         definition=(
             "Water from rain or snowmelt that runs off over the land surface "
             "instead of soaking into the soil, as the average amount per "
@@ -182,3 +200,17 @@ def variable_label(variable_id: str) -> str:
     if variable_id in VARIABLES:
         return VARIABLES[variable_id].label
     return variable_id.replace("_", " ").capitalize()
+
+
+def variable_short_label(variable_id: str) -> str:
+    info = VARIABLES.get(variable_id)
+    if info is not None and info.short_label:
+        return info.short_label
+    return variable_label(variable_id)
+
+
+def tour_region_ids() -> list[str]:
+    """Regions that can be drawn on the globe, in camera-tour order."""
+    drawable = [r for r in region_ids() if region_info(r).bbox is not None]
+    first = [r for r in TOUR_ORDER if r in drawable]
+    return first + [r for r in drawable if r not in first]

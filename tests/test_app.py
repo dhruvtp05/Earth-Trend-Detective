@@ -1,196 +1,199 @@
-"""Clicks through the app headlessly and checks each screen renders."""
+"""Runs the app headlessly and checks the globe screen and what it is sent."""
 
 from __future__ import annotations
 
+import json
+import re
 from pathlib import Path
 
+import pytest
 from streamlit.testing.v1 import AppTest
 
-APP = str(Path(__file__).resolve().parent.parent / "app.py")
+from services import catalog, copy
+from ui import globe, theme
+
+ROOT = Path(__file__).resolve().parent.parent
+APP = str(ROOT / "app.py")
+COMPONENT = ROOT / "ui" / "globe_component"
+
+VARIABLES = ["precip", "evap", "soilmoisture", "runoff"]
 
 
-def _start() -> AppTest:
+@pytest.fixture(scope="module")
+def payload() -> dict:
+    return globe.build_payload()
+
+
+def _page_html() -> str:
+    return (COMPONENT / "index.html").read_text(encoding="utf-8")
+
+
+# --- The page ----------------------------------------------------------------
+
+
+def test_app_is_one_full_screen_globe_with_no_streamlit_widgets():
     app = AppTest.from_file(APP, default_timeout=30).run()
     assert not app.exception
-    return app
+
+    # Start, the tick boxes, the charts switch and close all live inside the
+    # globe component; Streamlit itself adds no buttons or text.
+    for kind in ("button", "title", "header", "subheader", "caption", "selectbox",
+                 "radio", "slider", "toggle", "checkbox", "metric", "info", "error"):
+        assert len(getattr(app, kind)) == 0, kind
+
+    styles = [block.value for block in app.markdown]
+    assert len(styles) == 1
+    css = styles[0]
+    assert f".st-key-{globe.STAGE_KEY} iframe" in css
+    assert "position: fixed" in css and "100vw" in css and "100dvh" in css
+    assert '[data-testid="stHeader"]' in css and "footer" in css
+    assert "padding: 0 !important" in css
 
 
-def _click(app: AppTest, label: str) -> AppTest:
-    matches = [button for button in app.button if button.label == label]
-    assert matches, f"No button labelled {label!r}; found {[b.label for b in app.button]}"
-    matches[0].click().run()
-    assert not app.exception, app.exception
-    return app
+def test_page_and_component_use_the_same_background():
+    config = (ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8")
+    assert f'backgroundColor = "{theme.BACKGROUND}"' in config
 
 
-def _text(app: AppTest) -> str:
-    parts = []
-    for kind in ("title", "header", "subheader", "markdown", "caption", "info", "warning", "error"):
-        parts += [element.value for element in getattr(app, kind)]
-    return "\n".join(parts)
+# --- Regions -----------------------------------------------------------------
 
 
-LIST_BUTTON = "Choose a region from a list instead"
+def test_globe_regions_match_the_data_boxes_in_tour_order():
+    regions = globe.globe_regions()
+    assert [r["id"] for r in regions] == ["southwest", "midwest"]
+    assert [r["letter"] for r in regions] == ["A", "B"]
+    assert [r["label"] for r in regions] == ["Southwest", "Midwest"]
+    southwest, midwest = regions
+    assert [southwest[k] for k in ("west", "south", "east", "north")] == [-115, 31, -106, 40]
+    assert [midwest[k] for k in ("west", "south", "east", "north")] == [-93, 40, -76, 49]
 
 
-def _open_midwest() -> AppTest:
-    """Default investigation (Midwest precipitation) via the list route."""
-    return _click(_click(_start(), LIST_BUTTON), "Investigate")
+def test_a_region_without_saved_data_is_not_offered(tmp_path, monkeypatch):
+    source = catalog.discover()[("midwest", "precip")]
+    (tmp_path / source.name).write_bytes(source.read_bytes())
+    monkeypatch.setattr(catalog, "DATA_DIR", tmp_path)
+    assert [r["id"] for r in globe.globe_regions()] == ["midwest"]
 
 
-def test_landing():
-    app = _start()
-    assert app.title[0].value == "Explore how a place has changed"
-    assert [b.label for b in app.button] == [LIST_BUTTON]
+# --- What the globe is sent --------------------------------------------------
 
 
-def test_globe_regions_match_the_data_boxes():
-    from services import catalog
-    from ui import globe
-
-    regions = {r["id"]: r for r in globe.globe_regions(catalog.region_ids())}
-    assert set(regions) == {"midwest", "southwest"}
-    assert [regions["midwest"][k] for k in ("west", "south", "east", "north")] == [-93, 40, -76, 49]
-    assert [regions["southwest"][k] for k in ("west", "south", "east", "north")] == [-115, 31, -106, 40]
-    assert regions["midwest"]["label"] == "US Midwest"
-    # A region without saved data is not offered.
-    assert globe.globe_regions(["midwest"])[0]["id"] == "midwest"
-    assert len(globe.globe_regions(["midwest"])) == 1
-
-
-def test_results_panel_shows_result_chart_and_provisional_notice():
-    app = _open_midwest()
-    text = _text(app)
-    assert "MIDWEST REGION  ·  2005–2025" in text
-    assert [s.value for s in app.subheader] == ["Precipitation"]
-    assert "has an estimated trend of" in text
-    assert "The 95% confidence interval for the trend is" in text
-    assert "Provisional trend" in text
-    assert "not measurements at a single place" in text
-    assert len(app.metric) == 2
-    assert len(app.get("plotly_chart")) == 1
-    assert len(app.get("download_button")) == 2
+def test_payload_covers_every_region_and_variable(payload):
+    assert [v["id"] for v in payload["variables"]] == VARIABLES
+    assert [v["short"] for v in payload["variables"]] == [
+        "Precipitation", "Evaporation", "Soil moisture", "Runoff",
+    ]
+    assert set(payload["results"]) == {"southwest", "midwest"}
+    for region in payload["results"].values():
+        assert list(region) == VARIABLES
+    assert (payload["first_year"], payload["last_year"]) == (2000, 2025)
+    assert payload["provisional"] is True
+    json.dumps(payload)   # everything can be sent to the browser
 
 
-def test_every_chart_type_renders_with_a_description():
-    app = _open_midwest()
-    options = app.radio(key="r_chart").options
-    assert options == ["Trend line", "Yearly bars", "Histogram", "Seasonal pattern"]
-    for option in options:
-        app.radio(key="r_chart").set_value(option).run()
-        assert not app.exception, (option, app.exception)
-        assert len(app.get("plotly_chart")) == 1
-        assert "**What the chart shows.**" in _text(app)
-        # The result itself does not change with the chart type.
-        assert len(app.metric) == 2
+def test_each_variable_uses_all_the_years_its_file_covers(payload):
+    for region in payload["results"].values():
+        assert region["precip"]["period"] == "2005–2025"
+        assert region["soilmoisture"]["period"] == "2000–2025"
+        assert len(region["precip"]["monthly"]["v"]) == 252
+        assert len(region["soilmoisture"]["monthly"]["v"]) == 312
+        assert region["soilmoisture"]["annual"]["years"] == list(range(2000, 2026))
 
 
-def test_chart_type_survives_leaving_and_returning():
-    app = _open_midwest()
-    app.radio(key="r_chart").set_value("Histogram").run()
-    app = _click(app, "Inspect method and sources")
-    app = _click(app, "Back to the result")
-    assert app.radio(key="r_chart").value == "Histogram"
+def test_colour_follows_the_confidence_interval(payload):
+    """A trend is coloured as a rise or fall only if its interval excludes zero."""
+    for region_id, region in payload["results"].items():
+        for variable_id, result in region.items():
+            low, high = (
+                float(part) for part in result["interval_text"].replace("−", "-").split(" to ")
+            )
+            trend = float(result["trend_text"].replace("−", "-"))
+            if low <= 0 <= high:
+                expected, badge = "inconclusive", "Inconclusive"
+            else:
+                expected, badge = ("increase" if trend > 0 else "decrease"), "Significant"
+            assert result["direction"] == expected, (region_id, variable_id)
+            assert result["badge"] == badge, (region_id, variable_id)
 
 
-def test_evidence_and_back():
-    app = _open_midwest()
-    app = _click(app, "Inspect method and sources")
-    text = _text(app)
-    assert "Inspect the evidence" in text
-    assert "MERRA-2" in text and "5.12.4" in text
-    assert "Ordinary least squares" in text
-    app = _click(app, "Back to the result")
-    assert "MIDWEST REGION  ·  2005–2025" in _text(app)
+def test_directions_of_the_delivered_data(payload):
+    for region in payload["results"].values():
+        for variable_id, result in region.items():
+            expected = "decrease" if variable_id == "soilmoisture" else "inconclusive"
+            assert result["direction"] == expected
 
 
-def test_compare_view():
-    app = _open_midwest()
-    app = _click(app, "Compare with the Southwest")
-    text = _text(app)
-    assert "Precipitation: the Midwest and the Southwest, 2005–2025" in text
-    assert "does not test whether the two trends differ" in text
-    assert len(app.metric) == 2
-    # The data chart plus the region map.
-    assert len(app.get("plotly_chart")) == 2
+def test_labels_carry_value_unit_and_uncertainty_wording(payload):
+    result = payload["results"]["midwest"]["precip"]
+    assert re.fullmatch(r"[+-]\d+\.\d+", result["trend_text"])
+    assert result["trend_unit"] == "mm/day per decade"
+    assert result["trend_unit_short"] == "mm/day/decade"
+    assert result["uncertainty"].startswith("The 95% confidence interval for the trend is ")
+    assert result["uncertainty"].endswith("under the analysis assumptions.")
+    assert result["conclusion"] == (
+        "This analysis does not clearly distinguish an upward or downward "
+        "long-term trend from variability over this period."
+    )
+    assert result["badge_note"] == (
+        "Inconclusive: the 95% confidence interval includes zero, so no direction is shown."
+    )
+
+    significant = payload["results"]["midwest"]["soilmoisture"]
+    assert "consistent with a downward long-term trend" in significant["conclusion"]
+    assert "It is not a prediction" in significant["conclusion"]
+    assert significant["badge_note"].startswith("Statistically significant: the 95%")
 
 
-def test_panel_controls_change_the_result_and_survive_navigation():
-    app = _open_midwest()
-    app.selectbox(key="r_region").select("southwest").run()
-    app.selectbox(key="r_variable").select("soilmoisture").run()
-    app.slider(key="r_period").set_value((2018, 2025)).run()
-    assert not app.exception
-
-    text = _text(app)
-    assert "SOUTHWEST REGION  ·  2018–2025" in text
-    assert [s.value for s in app.subheader] == ["Soil moisture (top 10 cm)"]
-    assert "There is not enough usable data to estimate a reliable trend" in text
-    assert len(app.metric) == 0, "no trend numbers when the analysis is not ok"
-    assert "Provisional trend" not in text
-    assert app.radio(key="r_chart").options == ["Monthly values", "Histogram", "Seasonal pattern"]
-
-    # Leaving and returning keeps the selection.
-    app = _click(app, "Inspect method and sources")
-    app = _click(app, "Back to the result")
-    assert app.selectbox(key="r_region").value == "southwest"
-    assert app.selectbox(key="r_variable").value == "soilmoisture"
-    assert app.slider(key="r_period").value == (2018, 2025)
-
-    # "Full period" restores every available year, and the trend returns.
-    app = _click(app, "Full period")
-    assert app.slider(key="r_period").value == (2000, 2025)
-    assert len(app.metric) == 2
+def test_chart_series_are_complete_and_the_band_contains_the_fit(payload):
+    for region in payload["results"].values():
+        for result in region.values():
+            annual = result["annual"]
+            count = len(annual["years"])
+            assert count >= 10
+            assert [len(annual[k]) for k in ("mean", "fit", "lo", "hi")] == [count] * 4
+            for low, fit, high in zip(annual["lo"], annual["fit"], annual["hi"]):
+                assert low <= fit <= high
+            assert result["band_label"] == "95% confidence band for the fitted trend"
+            assert len(result["monthly"]["t"]) == len(result["monthly"]["v"])
+            assert result["source_url"].startswith("https://giovanni.gsfc.nasa.gov/")
+            assert [fact[0] for fact in result["facts"]] == [
+                "Dataset", "Coverage", "Source grid", "Months used", "Method", "Aggregation",
+            ]
 
 
-def test_switching_variable_in_the_panel_keeps_period_inside_available_years():
-    app = _open_midwest()
-    app.selectbox(key="r_variable").select("soilmoisture").run()
-    app.slider(key="r_period").set_value((2000, 2010)).run()
-    app.selectbox(key="r_variable").select("precip").run()
-    assert not app.exception
-    assert app.slider(key="r_period").value == (2005, 2010)
-    assert "MIDWEST REGION  ·  2005–2010" in _text(app)
+def test_payload_text_comes_from_the_copy_module(payload):
+    text = payload["text"]
+    assert text["directions"] == copy.DIRECTION_LABELS
+    assert text["provisional_tag"] == "Provisional"
+    assert text["provisional_notice"] == copy.PROVISIONAL_NOTICE
+    assert text["uncertainty_guide"] == copy.UNCERTAINTY_GUIDE
+    assert text["stripes"].startswith("Each stripe is one year, 2000 to 2025")
 
 
-def test_forecast_button_explains_the_plan_and_predicts_nothing():
-    app = _open_midwest()
-    before = [metric.value for metric in app.metric]
-    app = _click(app, "Forecast (coming soon)")
-    notes = [info.value for info in app.info if "Forecasting is planned" in info.value]
-    assert len(notes) == 1
-    assert "Nothing is predicted here today" in notes[0]
-    assert [metric.value for metric in app.metric] == before
-    app = _click(app, "Forecast (coming soon)")
-    assert not any("Forecasting is planned" in info.value for info in app.info)
+# --- The component files -----------------------------------------------------
 
 
-def test_dark_mode_applies_to_the_data_panel_only_when_switched_on():
-    app = _open_midwest()
-
-    def panel_is_dark() -> bool:
-        return any("invert(0.92)" in block.value for block in app.markdown)
-
-    assert not panel_is_dark()
-    app.toggle(key="r_dark").set_value(True).run()
-    assert not app.exception
-    assert panel_is_dark()
-    # The preference survives "Start over".
-    app = _click(app, "Start over")
-    app = _click(_click(app, LIST_BUTTON), "Investigate")
-    assert app.toggle(key="r_dark").value is True
+def test_component_has_only_start_ticks_details_switch_and_close():
+    html = _page_html()
+    body = html[html.index("<body"):html.index("<script")]
+    assert re.findall(r'<button[^>]*id="([^"]+)"', body) == ["start", "close"]
+    assert re.findall(r'<input[^>]*id="([^"]+)"', body) == ["detailsToggle"]
+    assert ">Start</button>" in body
+    assert "Charts &amp; details" in body
 
 
-def test_selection_screen_keeps_period_inside_available_years():
-    app = _click(_start(), LIST_BUTTON)
-    app.selectbox[1].select("soilmoisture").run()
-    app.slider[0].set_value((2000, 2010)).run()
-    app.selectbox[1].select("precip").run()
-    assert not app.exception
-    assert app.slider[0].value == (2005, 2010)
+def test_component_loads_nothing_from_another_server():
+    html = _page_html()
+    sources = re.findall(r'(?:src|href)="([^"]+)"', html)
+    assert "globe.gl.min.js" in sources
+    assert not [s for s in sources if s.startswith(("http:", "https:", "//"))]
+    for name in ("globe.gl.min.js", "earth-2k.jpg", "earth-blue-marble.jpg"):
+        assert (COMPONENT / name).stat().st_size > 100_000, name
+    # The picture loaded first is small enough for a phone connection.
+    assert (COMPONENT / "earth-2k.jpg").stat().st_size < 400_000
 
 
-def test_start_over_returns_to_landing():
-    app = _open_midwest()
-    app = _click(app, "Start over")
-    assert app.title[0].value == "Explore how a place has changed"
+def test_component_has_no_leftover_debug_hooks():
+    html = _page_html()
+    assert "__dbg" not in html and "TEMP" not in html and "console.log" not in html
+    assert not (COMPONENT / "_payload.json").exists()
