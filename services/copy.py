@@ -136,6 +136,117 @@ def conclusion_sentence(trend: TrendResult) -> str:
     )
 
 
+# ---------------------------------------------------------------------------
+# Globe view: short labels. The colour of a region on the globe follows
+# `trend_direction`, so a trend whose interval includes zero is never shown
+# as an increase or a decrease.
+# ---------------------------------------------------------------------------
+
+PROVISIONAL_TAG = "Provisional"
+
+SHORT_RECORD_NOTE = (
+    "The record is short for a climate trend, so the estimate is sensitive "
+    "to the chosen period."
+)
+
+UNCERTAINTY_GUIDE = (
+    "The confidence interval is a range of trend values that are compatible "
+    "with the data under the analysis assumptions. A wide interval means the "
+    "data do not pin the trend down well. If the interval includes zero, the "
+    "data cannot tell a rising trend from a falling one; that is different "
+    "from showing there was no change."
+)
+
+DIRECTION_LABELS = {
+    "increase": "Increase",
+    "decrease": "Decrease",
+    "inconclusive": "Inconclusive",
+    "none": "No trend estimated",
+}
+
+CHART_SERIES_LABELS = {
+    "monthly": "Monthly values",
+    "annual": "Annual mean",
+    "fitted": "Fitted trend",
+}
+
+
+def trend_direction(trend: TrendResult) -> str:
+    """'increase', 'decrease', 'inconclusive' or 'none' (no trend estimated).
+
+    Decided from the raw interval: a direction is reported only when the
+    confidence interval excludes zero.
+    """
+    if (
+        trend.status != "ok"
+        or trend.trend_per_decade is None
+        or trend.ci_lower is None
+        or trend.ci_upper is None
+    ):
+        return "none"
+    if interval_includes_zero(trend):
+        return "inconclusive"
+    return "increase" if trend.trend_per_decade > 0 else "decrease"
+
+
+def significance_badge(trend: TrendResult) -> str:
+    """Short badge shown beside a trend value."""
+    direction = trend_direction(trend)
+    if direction in ("increase", "decrease"):
+        return "Significant"
+    return DIRECTION_LABELS[direction]
+
+
+def significance_note(trend: TrendResult) -> str:
+    """One sentence saying what the badge means, and what it does not."""
+    direction = trend_direction(trend)
+    if direction == "none":
+        return ""
+    percent = round(trend.confidence_level * 100)
+    if direction == "inconclusive":
+        return (
+            f"Inconclusive: the {percent}% confidence interval includes zero, "
+            "so no direction is shown."
+        )
+    return (
+        f"Statistically significant: the {percent}% confidence interval does "
+        "not include zero. This does not say how large or important the "
+        "change is."
+    )
+
+
+def trend_unit_label(trend: TrendResult) -> str:
+    """'mm/day/decade' -> 'mm/day per decade'."""
+    return f"{base_unit(trend.trend_unit)} per decade"
+
+
+def trend_value_text(trend: TrendResult) -> str:
+    """Signed trend with the decimals used everywhere else, or ''."""
+    if trend.status != "ok" or trend.trend_per_decade is None:
+        return ""
+    return format_signed(trend.trend_per_decade, trend_decimals(trend))
+
+
+def interval_text(trend: TrendResult) -> str:
+    """'-0.17 to +0.12', or ''."""
+    if trend.status != "ok" or trend.ci_lower is None or trend.ci_upper is None:
+        return ""
+    decimals = trend_decimals(trend)
+    return f"{format_signed(trend.ci_lower, decimals)} to {format_signed(trend.ci_upper, decimals)}"
+
+
+def band_label(trend: TrendResult) -> str:
+    return f"{round(trend.confidence_level * 100)}% confidence band for the fitted trend"
+
+
+def stripes_legend(first_year: int, last_year: int) -> str:
+    """How yearly values are drawn inside each region on the globe."""
+    return (
+        f"Each stripe is one year, {first_year} to {last_year} from west to "
+        "east. Brighter means a higher yearly average for that region."
+    )
+
+
 def coverage_sentence(metadata: DatasetMetadata) -> str:
     """One-line reminder of what the values represent."""
     phrases = {

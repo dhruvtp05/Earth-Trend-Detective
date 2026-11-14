@@ -15,6 +15,9 @@ Stand-in method:
   3. Fit ordinary least squares of annual mean on year.
   4. 95% confidence interval for the slope from the t distribution
      with n - 2 degrees of freedom.
+  5. 95% confidence band for the fitted line from the same fit
+     (band_lower / band_upper). When Section B's method replaces this
+     one it must supply its own band, or the chart draws none.
 """
 
 from __future__ import annotations
@@ -132,8 +135,18 @@ def estimate_trend(
     fitted = [intercept + slope * x for x in years]
 
     sse = sum((y - f) ** 2 for y, f in zip(means, fitted))
-    se_slope = math.sqrt(sse / (n - 2)) / math.sqrt(sxx)
-    half_width = _t_critical_95(n - 2) * se_slope
+    residual_sd = math.sqrt(sse / (n - 2))
+    t_critical = _t_critical_95(n - 2)
+    se_slope = residual_sd / math.sqrt(sxx)
+    half_width = t_critical * se_slope
+
+    # 95% confidence band for the fitted line (the mean annual value in each
+    # year), not a prediction band for individual years:
+    #   fitted(x) +/- t * s * sqrt(1/n + (x - x_mean)^2 / Sxx)
+    band_half = [
+        t_critical * residual_sd * math.sqrt(1 / n + (x - x_mean) ** 2 / sxx)
+        for x in years
+    ]
 
     warnings = [
         "Placeholder statistical method. It will be replaced by Section B's analysis.",
@@ -169,4 +182,6 @@ def estimate_trend(
         aggregated_values=means,
         fitted_dates=mid_year,
         fitted_values=fitted,
+        band_lower=[f - h for f, h in zip(fitted, band_half)],
+        band_upper=[f + h for f, h in zip(fitted, band_half)],
     )

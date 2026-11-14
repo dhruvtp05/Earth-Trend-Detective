@@ -2,211 +2,1051 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Rotating globe showing the study regions</title>
+<title>Earth Trend Detective globe</title>
 <style>
+  :root {
+    --inc: #FFB000; --dec: #B79CFF; --neu: #A7AEBA;
+    --ink: #EAF0FA; --dim: #9AA6B8; --accent: #7FB2FF;
+    --glass: rgba(9, 15, 27, 0.80); --line: rgba(255, 255, 255, 0.16);
+    --panel-w: clamp(360px, 34vw, 470px);
+  }
+  * { box-sizing: border-box; }
   html, body {
-    margin: 0; height: 100%; overflow: hidden; background: transparent;
-    font-family: "Source Sans Pro", "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
-    color: #1A1A1A;
+    margin: 0; height: 100%; overflow: hidden; color: var(--ink);
+    background: #03050A;
+    font-family: "Source Sans 3", "Source Sans Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
-  #globe { position: absolute; inset: 0; cursor: grab; }
-  #overlay {
-    position: absolute; inset: 0; display: flex; align-items: center;
-    justify-content: center; pointer-events: none;
+  body { background: radial-gradient(ellipse at 50% 42%, #0C1830 0%, #050912 55%, #03050A 100%); }
+  button, input { font: inherit; color: inherit; }
+  button:focus-visible, input:focus-visible, a:focus-visible, summary:focus-visible, .pbody:focus-visible {
+    outline: 3px solid #FFD166; outline-offset: 2px;
   }
-  button { font: inherit; }
-  #explore {
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  #stars, #globe { position: absolute; inset: 0; }
+  #globe { cursor: grab; touch-action: none; }
+
+  /* ---- Start ------------------------------------------------------------ */
+  #start {
+    position: absolute; left: 50%; bottom: max(9vh, 36px); transform: translateX(-50%);
+    min-height: 52px; padding: 0 2.8rem; border: 0; border-radius: 999px; cursor: pointer;
+    font-size: 1.1rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #06101F; background: #FFFFFF;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 10px 44px rgba(127, 178, 255, 0.55);
+    opacity: 0; visibility: hidden; transition: opacity 0.6s ease, visibility 0s 0.6s;
+  }
+  #start:hover { background: #DCEAFF; }
+  body.idle.ready #start { opacity: 1; visibility: visible; transition: opacity 0.6s ease; }
+
+  /* ---- Variable ticks and the details switch ---------------------------- */
+  #bar {
+    position: absolute; top: 12px; left: 12px; right: 12px; z-index: 3;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    opacity: 0; visibility: hidden; transition: opacity 0.5s ease;
+  }
+  #ticks { display: flex; flex-wrap: wrap; gap: 8px; }
+  body.explore #bar, body.explore #legend, body.no-globe #bar { opacity: 1; visibility: visible; }
+  body.panel-open:not(.phone):not(.no-globe) #bar { right: calc(var(--panel-w) + 12px); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 0.55rem; min-height: 40px;
+    padding: 0 0.9rem 0 0.7rem; border-radius: 999px; cursor: pointer; user-select: none;
+    font-size: 0.92rem; font-weight: 600; white-space: nowrap;
+    background: var(--glass); border: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  }
+  .pill:hover { border-color: rgba(255, 255, 255, 0.4); }
+  .tick input {
+    appearance: none; -webkit-appearance: none; margin: 0; width: 18px; height: 18px; flex: none;
+    border-radius: 5px; border: 1.5px solid #C8D2E3; display: grid; place-content: center; cursor: pointer;
+  }
+  .tick input:checked { background: var(--accent); border-color: var(--accent); }
+  .tick input:checked::after {
+    content: ""; width: 5px; height: 10px; border: solid #06101F; border-width: 0 2px 2px 0;
+    transform: translateY(-1px) rotate(45deg);
+  }
+  .tick.off { color: var(--dim); }
+  .switch { margin-left: auto; }
+  .switch input {
+    appearance: none; -webkit-appearance: none; margin: 0; width: 36px; height: 20px; flex: none;
+    border-radius: 999px; background: #3A4558; position: relative; cursor: pointer; transition: background 0.2s;
+  }
+  .switch input::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+    border-radius: 50%; background: #FFFFFF; transition: transform 0.2s;
+  }
+  .switch input:checked { background: var(--accent); }
+  .switch input:checked::after { transform: translateX(16px); }
+
+  /* ---- Legend ----------------------------------------------------------- */
+  #legend {
+    position: absolute; left: 12px; bottom: 12px; z-index: 2; pointer-events: none;
+    max-width: min(600px, calc(100% - 24px));
+    padding: 0.5rem 0.75rem; border-radius: 12px; font-size: 0.8rem; line-height: 1.4; color: #C9D3E3;
+    background: var(--glass); border: 1px solid var(--line);
+    opacity: 0; visibility: hidden; transition: opacity 0.5s ease;
+  }
+  body.panel-open:not(.phone) #legend { max-width: min(600px, calc(100% - var(--panel-w) - 24px)); }
+  .key { display: inline-block; margin-right: 0.9rem; font-weight: 700; white-space: nowrap; }
+  .key.increase { color: var(--inc); } .key.decrease { color: var(--dec); } .key.inconclusive { color: var(--neu); }
+  .ramp {
+    display: inline-block; vertical-align: -1px; width: 46px; height: 9px; margin-right: 0.4rem;
+    border-radius: 2px; background: linear-gradient(90deg, #3E444E, #E4E7EC);
+  }
+
+  /* ---- Region cards pinned to the globe --------------------------------- */
+  .pin { width: 0; height: 0; }
+  .card {
+    position: absolute; left: 0; bottom: 10px; transform: translateX(-50%);
+    display: grid; grid-template-columns: auto auto auto auto; column-gap: 0.5rem; row-gap: 0.28rem;
+    align-items: baseline; text-align: left; white-space: nowrap;
     pointer-events: auto; cursor: pointer;
-    font-size: 1.2rem; font-weight: 600; letter-spacing: 0.01em;
-    padding: 0.85rem 1.9rem; border-radius: 999px;
-    color: #FFFFFF; background: #2E5EAA; border: 2px solid #FFFFFF;
-    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4);
+    padding: 0.5rem 0.7rem 0.6rem; border-radius: 12px; color: var(--ink);
+    background: var(--glass); border: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
   }
-  #explore:hover { background: #244C8C; }
-  button:focus-visible { outline: 3px solid #FFD166; outline-offset: 3px; }
-  #hint {
-    position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%);
-    display: none; white-space: nowrap; max-width: 96%;
-    padding: 0.35rem 0.9rem; border-radius: 999px; font-size: 0.95rem;
-    background: rgba(255, 255, 255, 0.94); border: 1px solid #D5D9E0;
+  .card:hover, .card.sel { border-color: #FFFFFF; }
+  .card-title {
+    grid-column: 1 / -1; font-size: 0.8rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
   }
-  .region-label {
-    pointer-events: auto; cursor: pointer; white-space: nowrap;
-    padding: 0.3rem 0.7rem; border-radius: 8px; font-size: 0.95rem; font-weight: 600;
-    color: #1A1A1A; background: rgba(255, 255, 255, 0.95);
-    border: 2px solid currentColor; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  .row { display: contents; }
+  .row > span { font-size: 0.86rem; grid-row: calc(var(--i) + 2); }
+  .row .glyph { grid-column: 1; } .row .name { grid-column: 2; }
+  .row .val { grid-column: 3; } .row .badge { grid-column: 4; }
+  .unit .short { display: none; }
+  .row .name { font-weight: 600; }
+  .row .val { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .unit { font-weight: 400; color: #C9D3E3; }
+  .badge {
+    justify-self: start; align-self: center; padding: 0.08rem 0.42rem; border-radius: 999px;
+    border: 1px solid currentColor; font-size: 0.66rem !important; font-weight: 800;
+    letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap;
   }
-  .region-label:hover { background: #FFFFFF; transform: scale(1.05); }
+  .increase .glyph, .increase .badge, .badge.increase, .glyph.increase { color: var(--inc); }
+  .decrease .glyph, .decrease .badge, .badge.decrease, .glyph.decrease { color: var(--dec); }
+  .inconclusive .glyph, .inconclusive .badge, .inconclusive .val, .inconclusive .unit,
+  .none .glyph, .none .badge, .badge.inconclusive, .badge.none, .glyph.inconclusive, .glyph.none { color: var(--neu); }
+  /* Phone: name and badge on one line, value and unit on the next. */
+  body.phone .card { grid-template-columns: auto 1fr auto; column-gap: 0.4rem; row-gap: 0; padding: 0.4rem 0.55rem 0.5rem; }
+  body.phone .row > span { font-size: 0.78rem; grid-row: calc(var(--i) * 2 + 2); margin-top: 0.3rem; }
+  body.phone .row .badge { grid-column: 3; justify-self: end; font-size: 0.6rem !important; }
+  body.phone .row .val { grid-column: 2 / 4; grid-row: calc(var(--i) * 2 + 3); margin-top: 0; }
+  body.phone .unit .long { display: none; }
+  body.phone .unit .short { display: inline; }
+  /* A card may hang below its region when two cards would collide. */
+  .card.below { bottom: auto; top: 10px; }
+  /* Tight screens: the card only names each row of stripes. The value,
+     unit and badge show when one region is in focus, and in the panel. */
+  body.summary .row .val, body.summary .row .badge { display: none; }
+  body.summary .row > span { grid-row: calc(var(--i) + 2); margin-top: 0.15rem; }
+  body.nocards .card { display: none; }
+  #measure { position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: none; }
+  #measure .card { position: static; transform: none; }
+
   .tip {
-    padding: 0.35rem 0.6rem; border-radius: 6px; font-size: 0.85rem;
-    color: #1A1A1A; background: rgba(255, 255, 255, 0.96); border: 1px solid #D5D9E0;
+    padding: 0.4rem 0.6rem; border-radius: 8px; font-size: 0.82rem; line-height: 1.35; color: var(--ink);
+    background: rgba(9, 15, 27, 0.95); border: 1px solid var(--line);
   }
-  #fallback {
-    display: none; position: absolute; inset: 0; align-items: center;
-    justify-content: center; text-align: center; padding: 1rem;
+
+  /* ---- Charts and details panel ----------------------------------------- */
+  #panel {
+    position: absolute; top: 0; right: 0; bottom: 0; width: var(--panel-w); z-index: 5;
+    display: flex; flex-direction: column;
+    background: rgba(7, 12, 22, 0.93); border-left: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    transform: translateX(100%); visibility: hidden;
+    transition: transform 0.35s ease, visibility 0s 0.35s;
+  }
+  body.panel-open #panel { transform: none; visibility: visible; transition: transform 0.35s ease; }
+  body.phone #panel {
+    top: auto; left: 0; width: auto; height: 56%;
+    border-left: 0; border-top: 1px solid var(--line); border-radius: 16px 16px 0 0;
+    transform: translateY(100%);
+  }
+  body.phone.panel-open #panel { transform: none; }
+  body.no-globe #panel { left: 0; width: auto; height: auto; border: 0; border-radius: 0; transform: none; visibility: visible; }
+
+  .phead { display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 0.8rem 0.6rem 1rem; border-bottom: 1px solid var(--line); }
+  .tabs { display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); }
+  .tabs button {
+    min-height: 34px; padding: 0 0.9rem; border: 0; border-radius: 999px; cursor: pointer;
+    background: transparent; color: var(--dim); font-weight: 700; font-size: 0.9rem;
+  }
+  .tabs button[aria-selected="true"] { background: #FFFFFF; color: #06101F; }
+  .prov {
+    padding: 0.1rem 0.5rem; border-radius: 999px; border: 1px dashed #E7C36A; color: #E7C36A;
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; cursor: help;
+  }
+  #close {
+    margin-left: auto; width: 40px; height: 40px; flex: none; border-radius: 50%; cursor: pointer;
+    background: rgba(255, 255, 255, 0.08); border: 1px solid var(--line); font-size: 1.3rem; line-height: 1;
+  }
+  #close:hover { background: rgba(255, 255, 255, 0.2); }
+  .pbody {
+    flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0.4rem 1rem 1.4rem;
+    scrollbar-width: thin; scrollbar-color: #4A5568 transparent;
+  }
+  .where { margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--dim); }
+  .var { padding: 1rem 0 1.1rem; border-bottom: 1px solid var(--line); }
+  .vhead { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+  .vhead h3 { margin: 0; font-size: 1.05rem; }
+  .big { margin: 0.35rem 0 0.5rem; font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .big .unit { font-size: 0.9rem; }
+  .big .period { font-size: 0.85rem; font-weight: 400; color: var(--dim); margin-left: 0.4rem; }
+  .big.inconclusive { color: var(--neu); }
+  svg.chart { display: block; width: 100%; height: auto; margin-top: 0.2rem; }
+  .ckey { display: flex; flex-wrap: wrap; gap: 0.2rem 0.9rem; margin: 0.3rem 0 0.6rem; padding: 0; list-style: none; font-size: 0.76rem; color: #C9D3E3; }
+  .ckey i { display: inline-block; width: 18px; height: 0; margin-right: 0.35rem; vertical-align: middle; border-top: 2px solid; }
+  .ckey .m i { border-color: #6F7B8D; border-top-width: 1px; }
+  .ckey .a i { border-color: var(--accent); }
+  .ckey .f i { border-color: #FFFFFF; border-top-style: dashed; }
+  .ckey .b i { height: 9px; border: 0; background: rgba(127, 178, 255, 0.36); }
+  .var p { margin: 0.45rem 0; font-size: 0.92rem; line-height: 1.45; }
+  .var p.small, .pfoot p { font-size: 0.82rem; color: #B6C1D3; }
+  dl.facts { margin: 0.7rem 0 0.4rem; display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.8rem; font-size: 0.82rem; }
+  dl.facts dt { color: var(--dim); } dl.facts dd { margin: 0; }
+  .var a { color: var(--accent); font-size: 0.86rem; }
+  details { margin-top: 0.6rem; font-size: 0.84rem; }
+  summary { cursor: pointer; color: var(--accent); font-weight: 600; min-height: 28px; }
+  table { width: 100%; margin-top: 0.4rem; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 0.8rem; }
+  th, td { padding: 0.22rem 0.3rem; text-align: right; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+  th { color: var(--dim); font-weight: 600; } th:first-child, td:first-child { text-align: left; }
+  .pfoot { padding-top: 0.6rem; }
+  .pfoot p { margin: 0.45rem 0; line-height: 1.45; }
+  .empty { margin: 1.2rem 0; color: var(--dim); }
+
+  /* ---- Phone layout ------------------------------------------------------ */
+  body.phone #ticks { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  body.phone .pill { font-size: 0.86rem; padding: 0 0.6rem; }
+  body.phone .switch { position: fixed; right: 12px; bottom: 12px; margin: 0; }
+  body.phone #legend { bottom: 60px; font-size: 0.72rem; padding: 0.4rem 0.6rem; }
+  body.no-globe .switch, body.no-globe #close { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #panel, #bar, #legend, #start { transition: none !important; }
   }
 </style>
 </head>
-<body>
-<div id="globe" aria-hidden="true"></div>
-<div id="overlay"><button id="explore" type="button">Explore regions</button></div>
-<div id="hint" role="status" aria-live="polite"></div>
-<div id="fallback">The 3D globe could not be shown in this browser. Use the button below the globe to choose a region.</div>
+<body class="idle">
+<canvas id="stars" aria-hidden="true"></canvas>
+<div id="globe"></div>
+
+<button id="start" type="button">Start</button>
+
+<div id="bar">
+  <div id="ticks" role="group" aria-label="Variables shown on the globe"></div>
+  <label class="pill switch">
+    <input id="detailsToggle" type="checkbox" role="switch">
+    <span>Charts &amp; details</span>
+  </label>
+</div>
+
+<div id="legend"></div>
+<div id="measure" aria-hidden="true"></div>
+
+<aside id="panel" aria-label="Charts and details">
+  <div class="phead">
+    <div class="tabs" id="tabs" role="tablist" aria-label="Region"></div>
+    <span class="prov" id="prov" hidden></span>
+    <button id="close" type="button" aria-label="Close charts and details">&times;</button>
+  </div>
+  <div class="pbody" id="pbody" tabindex="0"></div>
+</aside>
 
 <script src="globe.gl.min.js"></script>
 <script>
 (function () {
   "use strict";
 
-  // --- Minimal Streamlit component protocol -------------------------------
+  // --- Minimal Streamlit component protocol ---------------------------------
   function send(type, data) {
     window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: type }, data), "*");
   }
 
-  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var container = document.getElementById("globe");
-  var exploreButton = document.getElementById("explore");
-  var hint = document.getElementById("hint");
-  var globe = null;
-  var regions = [];
+  // --- Constants -------------------------------------------------------------
+  var PHONE_WIDTH = 720;
+  var FIRST_MOVE = 2800, MOVE = 2200, HOLD = 1500;   // camera tour, milliseconds
+  var MIN_ALTITUDE = 0.42, MAX_ALTITUDE = 4;
+  var CARD_GAP = 10;                                 // px between a region and its card
+  var GLYPH = { increase: "\u25B2", decrease: "\u25BC", inconclusive: "\u25CF", none: "\u25CB" };
+  // Hue and saturation by trend direction. Lightness carries the yearly value.
+  var HUE = { increase: [41, 100], decrease: [262, 88], inconclusive: [218, 7], none: [218, 7] };
 
-  function escapeHtml(text) {
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var body = document.body;
+  var container = document.getElementById("globe");
+  var bar = document.getElementById("bar");
+  var legend = document.getElementById("legend");
+  var panel = document.getElementById("panel");
+  var toggle = document.getElementById("detailsToggle");
+
+  var P = null;            // payload from Python
+  var globe = null;
+  var cards = {};          // region id -> { data, button }
+  var timers = [];
+  var offset = { x: 0, y: 0 }, offsetAnimation = 0;
+  var S = {
+    phase: "idle",         // idle -> tour -> explore
+    ticked: {},            // variable id -> true/false
+    shown: [],             // region ids revealed so far
+    region: null,          // region in the panel
+    panel: false,
+    userMoved: false,      // the visitor has moved the camera since the last framing
+    lastFrame: null,
+    skippedAt: 0
+  };
+
+  // --- Small helpers ---------------------------------------------------------
+  function esc(text) {
     var node = document.createElement("span");
-    node.textContent = text;
+    node.textContent = text == null ? "" : String(text);
     return node.innerHTML;
   }
+  function rad(d) { return d * Math.PI / 180; }
+  function deg(r) { return r * 180 / Math.PI; }
+  function minOf(a) { return Math.min.apply(null, a); }
+  function maxOf(a) { return Math.max.apply(null, a); }
+  function fmt(value) { return String(Number(value.toPrecision(3))); }
+  function isPhone() { return window.innerWidth < PHONE_WIDTH; }
 
-  function withAlpha(hex, alpha) {
-    var value = parseInt(hex.slice(1), 16);
-    return "rgba(" + (value >> 16) + "," + ((value >> 8) & 255) + "," + (value & 255) + "," + alpha + ")";
+  function hslHex(h, s, l) {
+    s /= 100; l /= 100;
+    var a = s * Math.min(l, 1 - l);
+    function channel(n) {
+      var k = (n + h / 30) % 12;
+      var c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+      return ("0" + Math.round(255 * c).toString(16)).slice(-2);
+    }
+    return "#" + channel(0) + channel(8) + channel(4);
+  }
+  // Colour of one yearly stripe: hue by trend direction, brightness by value.
+  function shade(direction, t) {
+    var hue = HUE[direction] || HUE.none;
+    return hslHex(hue[0], hue[1], 24 + 58 * t);
   }
 
   // Outline of a latitude/longitude box, with a point every degree so the
   // edges follow the parallels and meridians. Clockwise, as d3-geo expects.
-  function boxRing(r) {
+  function boxRing(west, south, east, north) {
     var points = [], v;
-    for (v = r.south; v < r.north; v += 1) points.push([r.west, v]);
-    for (v = r.west; v < r.east; v += 1) points.push([v, r.north]);
-    for (v = r.north; v > r.south; v -= 1) points.push([r.east, v]);
-    for (v = r.east; v > r.west; v -= 1) points.push([v, r.south]);
-    points.push([r.west, r.south]);
+    for (v = south; v < north; v += 1) points.push([west, v]);
+    for (v = west; v < east; v += 1) points.push([v, north]);
+    for (v = north; v > south; v -= 1) points.push([east, v]);
+    for (v = east; v > west; v -= 1) points.push([v, south]);
+    points.push([west, south]);
     return points;
   }
 
-  function choose(regionId) {
-    send("streamlit:setComponentValue", {
-      value: { region: regionId, nonce: Date.now() },
-      dataType: "json"
+  function region(id) {
+    for (var i = 0; i < P.regions.length; i++) if (P.regions[i].id === id) return P.regions[i];
+    return null;
+  }
+  function allRegionIds() { return P.regions.map(function (r) { return r.id; }); }
+  function tickedIds(regionId) {
+    return P.variables
+      .filter(function (v) { return S.ticked[v.id] && (!regionId || P.results[regionId][v.id]); })
+      .map(function (v) { return v.id; });
+  }
+  function variable(id) {
+    for (var i = 0; i < P.variables.length; i++) if (P.variables[i].id === id) return P.variables[i];
+    return null;
+  }
+
+  // --- Starfield -------------------------------------------------------------
+  function drawStars() {
+    var canvas = document.getElementById("stars");
+    var ratio = Math.min(2, window.devicePixelRatio || 1);
+    var w = window.innerWidth, h = window.innerHeight;
+    canvas.width = w * ratio; canvas.height = h * ratio;
+    var ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    var seed = 20261114;
+    function random() {            // small seeded generator: same sky every time
+      seed = (seed + 0x6D2B79F5) | 0;
+      var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    }
+    var count = Math.round(w * h / 4500);
+    for (var i = 0; i < count; i++) {
+      var size = (random() < 0.08 ? 1.4 : 0.8) * ratio;
+      ctx.fillStyle = "rgba(255,255,255," + (0.25 + 0.6 * random()).toFixed(2) + ")";
+      ctx.fillRect(random() * w * ratio, random() * h * ratio, size, size);
+    }
+  }
+
+  // --- Camera ---------------------------------------------------------------
+  function tanHalfFov() { return Math.tan(rad(globe.camera().fov / 2)); }
+
+  // Altitude at which the whole sphere has the given radius in pixels.
+  function altitudeForRadius(radiusPx) {
+    var q = radiusPx * tanHalfFov() / (window.innerHeight / 2);
+    return Math.max(0.6, Math.sqrt(1 + q * q) / q - 1);
+  }
+  function idleAltitude() {
+    var w = window.innerWidth, h = window.innerHeight;
+    return altitudeForRadius(Math.min(0.53 * w, 0.39 * h));
+  }
+
+  // The part of the window not covered by the controls or the panel.
+  function layout() {
+    var w = window.innerWidth, h = window.innerHeight, phone = isPhone();
+    var top = bar.offsetHeight + 20;
+    var bottom = legend.offsetHeight + (phone ? 68 : 20);
+    var right = 0;
+    if (S.panel) {
+      if (phone) bottom = panel.offsetHeight + 4;
+      else right = panel.offsetWidth;
+    }
+    return { W: w, H: h, phone: phone, x: 0, y: top, w: Math.max(160, w - right), h: Math.max(140, h - top - bottom) };
+  }
+
+  function applyOffset() {
+    var camera = globe.camera(), w = window.innerWidth, h = window.innerHeight;
+    if (Math.abs(offset.x) < 0.5 && Math.abs(offset.y) < 0.5) camera.clearViewOffset();
+    else camera.setViewOffset(w, h, offset.x, offset.y, w, h);
+  }
+  // Slide the picture so the globe is centred in the free part of the window.
+  function moveOffset(x, y, ms) {
+    cancelAnimationFrame(offsetAnimation);
+    if (!ms) { offset.x = x; offset.y = y; applyOffset(); return; }
+    var from = { x: offset.x, y: offset.y }, started = performance.now();
+    (function step(now) {
+      var t = Math.min(1, (now - started) / ms);
+      var e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      offset.x = from.x + (x - from.x) * e;
+      offset.y = from.y + (y - from.y) * e;
+      applyOffset();
+      if (t < 1) offsetAnimation = requestAnimationFrame(step);
+    })(started);
+  }
+  function offsetFor(L) {
+    return { x: L.W / 2 - (L.x + L.w / 2), y: L.H / 2 - (L.y + L.h / 2) };
+  }
+
+  function cardSize(id) {
+    var button = cards[id].button;
+    if (button.offsetWidth) return [button.offsetWidth, button.offsetHeight];
+    var box = document.getElementById("measure");
+    box.innerHTML = "";
+    var copy = box.appendChild(button.cloneNode(true));
+    var size = [copy.offsetWidth, copy.offsetHeight];
+    box.innerHTML = "";
+    return size;
+  }
+
+  // Card styles, most informative first: full cards, then `summary` cards
+  // that only name the rows, then no cards at all (a phone with the charts
+  // sheet open, where the sheet shows the same labels). Within a style a
+  // card sits above its region unless hanging one of two cards below its
+  // region ("upper" or "lower": the more northerly or southerly one) lets
+  // the regions be drawn clearly larger.
+  var CARD_STYLES = [
+    { summary: false, hidden: false, below: ["none", "upper", "lower"] },
+    { summary: true, hidden: false, below: ["none", "upper", "lower"] },
+    { summary: true, hidden: true, below: ["none"] }
+  ];
+  var MIN_REGION_WIDTH = 60;   // px: below this the yearly stripes are too thin
+
+  function overlaps(a, b, margin) {
+    return a.l < b.r + margin && b.l < a.r + margin && a.b < b.t + margin && b.b < a.t + margin;
+  }
+
+  function useCardStyle(style) {
+    body.classList.toggle("summary", style.summary);
+    body.classList.toggle("nocards", style.hidden);
+  }
+
+  // Largest scale at which the regions and their cards fit the free part of
+  // the window with one card style and placement, and whether that result
+  // is good enough. Pixels are measured from the reference point: x to the
+  // right, y upwards.
+  function solve(regions, L, style, placement) {
+    useCardStyle(style);                                      // before measuring cards
+    var pad = L.phone ? 12 : 30;
+    var availW = L.w - 2 * pad, availH = L.h - 2 * pad;
+    var refLat = 0, refLng = 0, lower = regions[0], upper = regions[0];
+    regions.forEach(function (g) {
+      refLat += (g.south + g.north) / 2;
+      refLng += (g.west + g.east) / 2;
+      if (g.south + g.north < lower.south + lower.north) lower = g;
+      if (g.south + g.north > upper.south + upper.north) upper = g;
+    });
+    refLat /= regions.length; refLng /= regions.length;
+    var k = Math.cos(rad(refLat));
+    var below = {}, sizes = {};
+    if (regions.length === 2 && placement === "lower") below[lower.id] = true;
+    if (regions.length === 2 && placement === "upper") below[upper.id] = true;
+    regions.forEach(function (g) { sizes[g.id] = style.hidden ? [0, -CARD_GAP] : cardSize(g.id); });
+
+    function place(p) {
+      return regions.map(function (g) {
+        var size = sizes[g.id];
+        var box = {
+          l: rad(g.west - refLng) * k * p, r: rad(g.east - refLng) * k * p,
+          t: rad(g.north - refLat) * p, b: rad(g.south - refLat) * p
+        };
+        var cx = (box.l + box.r) / 2;
+        var card = below[g.id]
+          ? { l: cx - size[0] / 2, r: cx + size[0] / 2, t: box.b - CARD_GAP, b: box.b - CARD_GAP - size[1] }
+          : { l: cx - size[0] / 2, r: cx + size[0] / 2, t: box.t + CARD_GAP + size[1], b: box.t + CARD_GAP };
+        return { box: box, card: card };
+      });
+    }
+    function extent(placed) {
+      var e = { l: Infinity, r: -Infinity, t: -Infinity, b: Infinity };
+      placed.forEach(function (item) {
+        [item.box, item.card].forEach(function (rect) {
+          e.l = Math.min(e.l, rect.l); e.r = Math.max(e.r, rect.r);
+          e.t = Math.max(e.t, rect.t); e.b = Math.min(e.b, rect.b);
+        });
+      });
+      return e;
+    }
+
+    var scale = L.H / (2 * tanHalfFov());           // altitude = scale / p
+    var low = scale / MAX_ALTITUDE, high = scale / MIN_ALTITUDE;
+    for (var i = 0; i < 30; i++) {
+      var mid = (low + high) / 2, e = extent(place(mid));
+      if (e.r - e.l <= availW && e.t - e.b <= availH) low = mid; else high = mid;
+    }
+    var placed = place(low), fits = extent(placed), good = true;
+    if (fits.r - fits.l > availW + 1 || fits.t - fits.b > availH + 1) good = false;
+    placed.forEach(function (a, i) {
+      if (a.box.r - a.box.l < MIN_REGION_WIDTH) good = false;
+      placed.forEach(function (b, j) {
+        if (i === j) return;
+        if (overlaps(a.card, b.box, 6) || (i < j && overlaps(a.card, b.card, 10))) good = false;
+      });
+    });
+    return {
+      good: good || style.hidden, below: below, scale: low,
+      lat: Math.max(-80, Math.min(80, refLat + deg((fits.t + fits.b) / 2 / low))),
+      lng: refLng + deg((fits.l + fits.r) / 2 / (k * low)),
+      altitude: scale / low
+    };
+  }
+
+  // Ease the camera so the given regions, with their cards, fill the free
+  // part of the window.
+  function frame(ids, ms) {
+    if (!globe) return;
+    var regions = P.regions.filter(function (r) { return ids.indexOf(r.id) >= 0; });
+    if (!regions.length) return;
+    S.lastFrame = ids.slice();
+    S.userMoved = false;
+
+    // Take the first card style that fits without shrinking the regions to
+    // less than half the size they would have with no cards at all.
+    var L = layout(), plan = null, last = CARD_STYLES.length - 1;
+    var bare = solve(regions, L, CARD_STYLES[last], "none");
+    for (var i = 0; i <= last && !plan; i++) {
+      var style = CARD_STYLES[i], best = null;
+      style.below.forEach(function (placement) {
+        var option = solve(regions, L, style, placement);
+        if (!option.good || option.scale < 0.5 * bare.scale) return;
+        if (!best || option.scale > 1.08 * best.scale) best = option;
+      });
+      if (best) { plan = best; useCardStyle(style); }
+    }
+    P.regions.forEach(function (g) {
+      var isBelow = !!plan.below[g.id];
+      cards[g.id].button.classList.toggle("below", isBelow);
+      cards[g.id].data.lat = isBelow ? g.south : g.north;
+    });
+    showCards();
+
+    var duration = reduceMotion ? 0 : ms;
+    var shift = offsetFor(L);
+    globe.pointOfView({ lat: plan.lat, lng: plan.lng, altitude: plan.altitude }, duration);
+    moveOffset(shift.x, shift.y, duration);
+  }
+
+  // --- Data on the globe ------------------------------------------------------
+  function tipFor(g, v, result, year, value) {
+    return '<div class="tip"><b>' + esc(g.label) + " \u00B7 " + esc(variable(v).short) + "</b><br>" +
+      year + " yearly average: " + esc(fmt(value)) + " " + esc(result.unit) + "<br>" +
+      '<span class="glyph ' + result.direction + '">' + GLYPH[result.direction] + "</span> " +
+      esc(P.text.directions[result.direction]) + "</div>";
+  }
+
+  // One row of yearly stripes per ticked variable inside each region box.
+  function buildPolygons() {
+    var polygons = [];
+    var years = P.last_year - P.first_year + 1;
+    P.regions.forEach(function (g) {
+      if (S.shown.indexOf(g.id) < 0) return;
+      polygons.push({
+        kind: "plate", region: g.id, selected: S.panel && S.region === g.id,
+        tip: '<div class="tip"><b>' + esc(g.label) + "</b><br>" + esc(g.description) + "</div>",
+        geometry: { type: "Polygon", coordinates: [boxRing(g.west, g.south, g.east, g.north)] }
+      });
+      var ids = tickedIds(g.id);
+      if (!ids.length) return;
+      var inset = 0.3, gap = 0.22;
+      var rowHeight = (g.north - g.south - 2 * inset - gap * (ids.length - 1)) / ids.length;
+      var columnWidth = (g.east - g.west - 2 * inset) / years;
+      ids.forEach(function (v, row) {
+        var result = P.results[g.id][v], annual = result.annual;
+        var top = g.north - inset - row * (rowHeight + gap), bottom = top - rowHeight;
+        if (!annual.years.length) return;      // no trend estimated: plate only
+        var low = minOf(annual.mean), high = maxOf(annual.mean);
+        annual.years.forEach(function (year, index) {
+          var west = g.west + inset + (year - P.first_year) * columnWidth;
+          var t = high > low ? (annual.mean[index] - low) / (high - low) : 0.5;
+          polygons.push({
+            kind: "cell", region: g.id, color: shade(result.direction, t),
+            tip: tipFor(g, v, result, year, annual.mean[index]),
+            geometry: { type: "Polygon", coordinates: [boxRing(west, bottom, west + columnWidth, top)] }
+          });
+        });
+      });
+    });
+    return polygons;
+  }
+
+  function cardHtml(g) {
+    var rows = tickedIds(g.id).map(function (v, index) {
+      var result = P.results[g.id][v];
+      var value = result.trend_text
+        ? esc(result.trend_text) + ' <span class="unit"><span class="long">' + esc(result.trend_unit) +
+          '</span><span class="short">' + esc(result.trend_unit_short) + "</span></span>"
+        : "";
+      return '<span class="row ' + result.direction + '" style="--i:' + index + '">' +
+        '<span class="glyph" aria-hidden="true">' + GLYPH[result.direction] + "</span>" +
+        '<span class="name">' + esc(variable(v).short) + "</span>" +
+        '<span class="val">' + value + "</span>" +
+        '<span class="badge" title="' + esc(result.badge_note) + '">' + esc(result.badge) + "</span>" +
+        "</span>";
+    });
+    return '<span class="card-title">' + esc(g.label) + "</span>" + rows.join("");
+  }
+
+  function makeCard(g) {
+    var pin = document.createElement("div");
+    pin.className = "pin";
+    var button = document.createElement("button");
+    button.type = "button";
+    button.className = "card";
+    button.setAttribute("aria-label", g.label + ": open charts and details");
+    button.addEventListener("click", function () { openPanel(g.id); });
+    pin.appendChild(button);
+    cards[g.id] = { button: button, data: { id: g.id, lat: g.north, lng: (g.west + g.east) / 2, el: pin } };
+  }
+
+  function renderGlobeData() {
+    if (!globe) return;
+    P.regions.forEach(function (g) {
+      cards[g.id].button.innerHTML = cardHtml(g);
+      cards[g.id].button.classList.toggle("sel", S.panel && S.region === g.id);
+    });
+    globe.polygonsData(buildPolygons());
+    showCards();
+  }
+
+  // Pin the cards of the revealed regions (again, if one moved to the
+  // other side of its region).
+  function showCards() {
+    // With the panel open only the region it describes keeps its card, so a
+    // neighbour's card is not left half off the edge of the window.
+    globe.htmlElementsData(P.regions
+      .filter(function (g) { return S.shown.indexOf(g.id) >= 0 && (!S.panel || g.id === S.region); })
+      .map(function (g) { return cards[g.id].data; }));
+  }
+
+  function renderLegend() {
+    var d = P.text.directions;
+    legend.innerHTML =
+      '<span class="key increase">' + GLYPH.increase + " " + esc(d.increase) + "</span>" +
+      '<span class="key decrease">' + GLYPH.decrease + " " + esc(d.decrease) + "</span>" +
+      '<span class="key inconclusive">' + GLYPH.inconclusive + " " + esc(d.inconclusive) + "</span><br>" +
+      '<span class="ramp" aria-hidden="true"></span>' + esc(P.text.stripes);
+  }
+
+  function renderTicks() {
+    var group = document.getElementById("ticks");
+    P.variables.forEach(function (v) {
+      var label = document.createElement("label");
+      label.className = "pill tick";
+      var input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = !!S.ticked[v.id];
+      input.addEventListener("change", function () {
+        S.ticked[v.id] = input.checked;
+        label.classList.toggle("off", !input.checked);
+        renderGlobeData();
+        renderPanel();
+        // Cards changed size: re-centre, unless the visitor chose their own view.
+        if (S.phase === "explore" && !S.userMoved && S.lastFrame) frame(S.lastFrame, 600);
+      });
+      var text = document.createElement("span");
+      text.textContent = v.short;
+      label.title = v.label;
+      label.appendChild(input);
+      label.appendChild(text);
+      group.appendChild(label);
     });
   }
 
-  function showFallback() {
-    document.getElementById("overlay").style.display = "none";
-    container.style.display = "none";
-    document.getElementById("fallback").style.display = "flex";
+  // --- Charts ---------------------------------------------------------------
+  function niceTicks(low, high, count) {
+    var span = high - low || Math.abs(high) || 1;
+    var raw = span / count, magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
+    var norm = raw / magnitude;
+    var step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * magnitude;
+    var first = Math.floor(low / step) * step, last = Math.ceil(high / step) * step;
+    var values = [];
+    for (var v = first; v <= last + step / 2; v += step) values.push(v);
+    return { values: values, low: first, high: last, decimals: Math.max(0, -Math.floor(Math.log10(step) + 1e-9)) };
   }
 
-  function start(args) {
-    regions = args.regions || [];
+  // Monthly values, annual means, fitted trend and its confidence band.
+  function chartSvg(result) {
+    var mt = result.monthly.t, mv = result.monthly.v, a = result.annual;
+    if (!mt.length) return "";
+    var W = 380, H = 210, left = 48, right = 8, top = 18, bottom = 22;
+    var x0 = Math.floor(minOf(mt)), x1 = Math.ceil(maxOf(mt));
+    var all = mv.concat(a.lo, a.hi);
+    var ticks = niceTicks(minOf(all), maxOf(all), 4);
+    function X(t) { return left + (t - x0) / (x1 - x0) * (W - left - right); }
+    function Y(v) { return H - bottom - (v - ticks.low) / (ticks.high - ticks.low) * (H - top - bottom); }
+    function path(xs, ys) {
+      return xs.map(function (x, i) { return (i ? "L" : "M") + X(x).toFixed(1) + " " + Y(ys[i]).toFixed(1); }).join("");
+    }
+    var mid = a.years.map(function (year) { return year + 0.5; });
+    var s = '<svg class="chart" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' +
+      esc(result.label + ", " + result.period + ", in " + result.unit +
+          ": monthly values, annual means" + (a.fit.length ? ", fitted trend" : "") +
+          (a.lo.length ? " and confidence band" : "")) + '">';
+    s += '<text x="4" y="10" fill="#9AA6B8" font-size="10">' + esc(result.unit) + "</text>";
+    ticks.values.forEach(function (v) {
+      s += '<line x1="' + left + '" x2="' + (W - right) + '" y1="' + Y(v).toFixed(1) + '" y2="' + Y(v).toFixed(1) +
+        '" stroke="rgba(255,255,255,0.09)"/>' +
+        '<text x="' + (left - 6) + '" y="' + (Y(v) + 3).toFixed(1) + '" text-anchor="end" fill="#9AA6B8" font-size="10">' +
+        v.toFixed(ticks.decimals) + "</text>";
+    });
+    for (var year = Math.ceil(x0 / 5) * 5; year <= x1; year += 5) {
+      s += '<line x1="' + X(year).toFixed(1) + '" x2="' + X(year).toFixed(1) + '" y1="' + (H - bottom) + '" y2="' + (H - bottom + 4) +
+        '" stroke="#9AA6B8"/>' +
+        '<text x="' + X(year).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle" fill="#9AA6B8" font-size="10">' + year + "</text>";
+    }
+    s += '<path d="' + path(mt, mv) + '" fill="none" stroke="#6F7B8D" stroke-width="0.9"/>';
+    if (a.lo.length) {
+      s += '<path d="' + path(mid, a.hi) + path(mid.slice().reverse(), a.lo.slice().reverse()).replace("M", "L") +
+        'Z" fill="rgba(127,178,255,0.32)"/>';
+    }
+    if (mid.length) {
+      s += '<path d="' + path(mid, a.mean) + '" fill="none" stroke="#7FB2FF" stroke-width="1.8"/>';
+      mid.forEach(function (x, i) {
+        s += '<circle cx="' + X(x).toFixed(1) + '" cy="' + Y(a.mean[i]).toFixed(1) + '" r="2.3" fill="#7FB2FF"/>';
+      });
+    }
+    if (a.fit.length) {
+      s += '<path d="' + path(mid, a.fit) + '" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-dasharray="6 4"/>';
+    }
+    return s + "</svg>";
+  }
+
+  function chartKey(result) {
+    var a = result.annual, s = '<ul class="ckey">';
+    s += '<li class="m"><i></i>' + esc(P.text.series.monthly) + "</li>";
+    if (a.years.length) s += '<li class="a"><i></i>' + esc(P.text.series.annual) + "</li>";
+    if (a.fit.length) s += '<li class="f"><i></i>' + esc(P.text.series.fitted) + "</li>";
+    if (a.lo.length) s += '<li class="b"><i></i>' + esc(result.band_label) + "</li>";
+    return s + "</ul>";
+  }
+
+  function yearlyTable(result) {
+    var a = result.annual;
+    if (!a.years.length) return "";
+    var s = "<details><summary>Yearly values</summary><table><thead><tr><th>Year</th><th>" +
+      esc(P.text.series.annual) + "</th>" + (a.fit.length ? "<th>" + esc(P.text.series.fitted) + "</th>" : "") +
+      (a.lo.length ? "<th>Band</th>" : "") + "</tr></thead><tbody>";
+    a.years.forEach(function (year, i) {
+      s += "<tr><td>" + year + "</td><td>" + esc(fmt(a.mean[i])) + "</td>" +
+        (a.fit.length ? "<td>" + esc(fmt(a.fit[i])) + "</td>" : "") +
+        (a.lo.length ? "<td>" + esc(fmt(a.lo[i])) + " to " + esc(fmt(a.hi[i])) + "</td>" : "") + "</tr>";
+    });
+    return s + "</tbody></table></details>";
+  }
+
+  function variableSection(result) {
+    var s = '<section class="var"><div class="vhead"><h3>' + esc(result.label) + "</h3>" +
+      '<span class="badge ' + result.direction + '">' + esc(result.badge) + "</span></div>";
+    if (result.trend_text) {
+      s += '<p class="big ' + result.direction + '"><span class="glyph ' + result.direction + '" aria-hidden="true">' +
+        GLYPH[result.direction] + "</span> " + esc(result.trend_text) +
+        ' <span class="unit">' + esc(result.trend_unit) + "</span>" +
+        '<span class="period">' + esc(result.period) + "</span></p>";
+    }
+    s += chartSvg(result) + chartKey(result);
+    if (result.uncertainty) s += "<p>" + esc(result.uncertainty) + "</p>";
+    if (result.conclusion) s += "<p>" + esc(result.conclusion) + "</p>";
+    if (result.badge_note) s += '<p class="small">' + esc(result.badge_note) + "</p>";
+    s += '<dl class="facts">' + result.facts.map(function (fact) {
+      return "<dt>" + esc(fact[0]) + "</dt><dd>" + esc(fact[1]) + "</dd>";
+    }).join("") + "</dl>";
+    result.notes.forEach(function (note) { s += '<p class="small">' + esc(note) + "</p>"; });
+    if (/^https:\/\//.test(result.source_url)) {
+      s += '<a href="' + esc(result.source_url) + '" target="_blank" rel="noopener noreferrer">Reproduce this series in NASA Giovanni</a>';
+    }
+    return s + yearlyTable(result) + "</section>";
+  }
+
+  function renderPanel() {
+    body.classList.toggle("panel-open", S.panel);
+    toggle.checked = S.panel;
+    if (!S.panel) return;
+    var g = region(S.region);
+
+    var tabs = document.getElementById("tabs");
+    tabs.innerHTML = "";
+    P.regions.forEach(function (r) {
+      var tab = document.createElement("button");
+      tab.type = "button";
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-selected", String(r.id === S.region));
+      tab.textContent = r.label;
+      tab.addEventListener("click", function () { openPanel(r.id); });
+      tabs.appendChild(tab);
+    });
+
+    var prov = document.getElementById("prov");
+    prov.hidden = !P.provisional;
+    prov.textContent = P.text.provisional_tag;
+    prov.title = P.text.provisional_notice;
+
+    var ids = tickedIds(g.id);
+    var html = '<p class="where">' + esc(g.description) + "</p>";
+    html += ids.length
+      ? ids.map(function (v) { return variableSection(P.results[g.id][v]); }).join("")
+      : '<p class="empty">Tick a variable to see its chart.</p>';
+    html += '<div class="pfoot">' +
+      (P.provisional ? "<p>" + esc(P.text.provisional_notice) + "</p>" : "") +
+      "<p>" + esc(P.text.uncertainty_guide) + "</p>" +
+      "<p>" + esc(P.text.short_record) + " " + esc(P.text.saved_data) + "</p></div>";
+    document.getElementById("pbody").innerHTML = html;
+  }
+
+  function openPanel(regionId) {
+    if (S.phase !== "explore" || performance.now() - S.skippedAt < 400) return;
+    var changed = S.region !== regionId || !S.panel;
+    S.region = regionId;
+    S.panel = true;
+    renderPanel();
+    if (changed) document.getElementById("pbody").scrollTop = 0;
+    renderGlobeData();
+    frame([regionId], 1300);
+  }
+
+  function closePanel() {
+    if (!S.panel || !globe) return;   // without the globe the panel is the whole view
+    S.panel = false;
+    renderPanel();
+    renderGlobeData();
+    frame(allRegionIds(), 1100);
+  }
+
+  // --- Camera tour ------------------------------------------------------------
+  function reveal(id) {
+    if (S.shown.indexOf(id) < 0) S.shown.push(id);
+    renderGlobeData();
+  }
+
+  function finishTour(ms) {
+    timers.forEach(clearTimeout);
+    timers = [];
+    allRegionIds().forEach(function (id) { if (S.shown.indexOf(id) < 0) S.shown.push(id); });
+    S.phase = "explore";
+    body.classList.remove("tour");
+    body.classList.add("explore");
+    var controls = globe.controls(), radius = globe.getGlobeRadius();
+    controls.enableZoom = true;
+    controls.minDistance = radius * 1.12;
+    controls.maxDistance = radius * (1 + MAX_ALTITUDE);
+    renderGlobeData();
+    frame(allRegionIds(), ms);
+  }
+
+  // Global view -> Region A -> Region B -> both.
+  function startTour() {
+    if (S.phase !== "idle" || !globe) return;
+    S.phase = "tour";
+    body.classList.remove("idle");
+    body.classList.add("tour");
+    globe.controls().autoRotate = false;
+    if (reduceMotion) { finishTour(0); return; }
+
+    var at = 0;
+    allRegionIds().forEach(function (id, index) {
+      var move = index === 0 ? FIRST_MOVE : MOVE;
+      timers.push(setTimeout(function () { reveal(id); frame([id], move); }, at));
+      at += move + HOLD;
+    });
+    timers.push(setTimeout(function () { finishTour(MOVE); }, at));
+  }
+
+  function skipTour() {
+    if (S.phase !== "tour") return;
+    S.skippedAt = performance.now();
+    finishTour(900);
+  }
+
+  // --- Set-up -----------------------------------------------------------------
+  function webglAvailable() {
+    try {
+      var canvas = document.createElement("canvas");
+      return !!(canvas.getContext("webgl2") || canvas.getContext("webgl"));
+    } catch (error) { return false; }
+  }
+
+  // Without 3D graphics the charts and details are still shown.
+  function showWithoutGlobe() {
+    globe = null;
+    container.style.display = "none";
+    document.getElementById("start").style.display = "none";
+    body.className = "no-globe" + (isPhone() ? " phone" : "");
+    S.phase = "explore";
+    S.region = P.regions[0].id;
+    S.panel = true;
+    renderPanel();
+    panel.style.top = (bar.offsetHeight + 24) + "px";
+  }
+
+  function upgradeTexture() {
+    var connection = navigator.connection || {};
+    var pixels = Math.max(screen.width, screen.height) * (window.devicePixelRatio || 1);
+    if (connection.saveData || pixels < 1600) return;
+    var image = new Image();
+    image.onload = function () { if (globe) globe.globeImageUrl("earth-blue-marble.jpg"); };
+    image.src = "earth-blue-marble.jpg";
+  }
+
+  // A click or tap on a region opens its charts. The region is found from
+  // the point on the globe under the pointer, so a quick tap on a phone
+  // works even before the library has worked out what is being hovered.
+  function watchTaps() {
+    var press = null;
+    container.addEventListener("pointerdown", function (event) {
+      press = { x: event.clientX, y: event.clientY, at: performance.now() };
+    });
+    container.addEventListener("pointerup", function (event) {
+      if (!press) return;
+      var moved = Math.hypot(event.clientX - press.x, event.clientY - press.y);
+      var held = performance.now() - press.at;
+      press = null;
+      if (moved > 6 || held > 700 || event.button !== 0) return;          // a drag, not a tap
+      if (event.target.closest && event.target.closest(".card")) return;  // cards handle their own clicks
+      var bounds = container.getBoundingClientRect();
+      var point = globe.toGlobeCoords(event.clientX - bounds.left, event.clientY - bounds.top);
+      if (!point) return;
+      var hit = P.regions.filter(function (g) {
+        return S.shown.indexOf(g.id) >= 0 &&
+          point.lat >= g.south && point.lat <= g.north && point.lng >= g.west && point.lng <= g.east;
+      })[0];
+      if (hit) openPanel(hit.id);
+    });
+  }
+
+  function startGlobe() {
     globe = new Globe(container)
-      .globeImageUrl("earth-blue-marble.jpg")
+      .globeImageUrl("earth-2k.jpg")
       .backgroundColor("rgba(0,0,0,0)")
       .showAtmosphere(true)
-      .atmosphereColor("#9CC3FF")
-      .atmosphereAltitude(0.16)
+      .atmosphereColor("#7FB2FF")
+      .atmosphereAltitude(0.17)
       .width(window.innerWidth)
       .height(window.innerHeight)
       .polygonsData([])
-      .polygonCapColor(function (d) { return withAlpha(d.color, 0.55); })
-      .polygonSideColor(function () { return "rgba(0,0,0,0)"; })
-      .polygonStrokeColor(function () { return "#FFFFFF"; })
-      .polygonAltitude(0.012)
-      .polygonsTransitionDuration(0)
-      .polygonLabel(function (d) {
-        return '<div class="tip"><b>' + escapeHtml(d.label) + "</b><br>" + escapeHtml(d.description) + "</div>";
+      .polygonCapColor(function (d) { return d.kind === "cell" ? d.color : "rgba(4,8,16,0.8)"; })
+      // Opaque sides: see-through ones would still hide the plate behind them.
+      .polygonSideColor(function (d) { return d.kind === "cell" ? "#04080F" : "rgba(0,0,0,0)"; })
+      .polygonStrokeColor(function (d) {
+        return d.kind === "cell" ? false : (d.selected ? "#FFFFFF" : "rgba(255,255,255,0.7)");
       })
+      .polygonAltitude(function (d) { return d.kind === "cell" ? 0.012 : 0.005; })
+      .polygonsTransitionDuration(0)
+      .polygonLabel(function (d) { return d.tip; })
       .onPolygonHover(function (d) { container.style.cursor = d ? "pointer" : "grab"; })
-      .onPolygonClick(function (d) { choose(d.id); })
       .htmlElementsData([])
       .htmlLat(function (d) { return d.lat; })
       .htmlLng(function (d) { return d.lng; })
-      .htmlAltitude(0.03)
-      .htmlElement(function (d) {
-        var button = document.createElement("button");
-        button.type = "button";
-        button.className = "region-label";
-        button.style.color = d.color;
-        button.innerHTML = '<span style="color:#1A1A1A">' + escapeHtml(d.label) + "</span>";
-        button.setAttribute("aria-label", "Explore " + d.label + ": " + d.description);
-        button.addEventListener("click", function () { choose(d.id); });
-        return button;
-      });
+      .htmlAltitude(0.012)
+      .htmlElement(function (d) { return d.el; });
 
-    // Altitudes of about 1.4 and above keep the whole sphere inside the frame.
-    globe.pointOfView({ lat: 18, lng: -20, altitude: 1.7 }, 0);
+    globe.pointOfView({ lat: 22, lng: -150, altitude: idleAltitude() }, 0);
     var controls = globe.controls();
-    controls.enableZoom = false;          // keep page scrolling normal
+    controls.enableZoom = false;
+    controls.enablePan = false;
     controls.autoRotate = !reduceMotion;
-    controls.autoRotateSpeed = 0.8;
+    controls.autoRotateSpeed = 0.45;
+    controls.addEventListener("start", function () { if (S.phase === "explore") S.userMoved = true; });
 
-    exploreButton.addEventListener("click", reveal);
-    window.addEventListener("resize", function () {
-      globe.width(window.innerWidth).height(window.innerHeight);
-    });
+    watchTaps();
+    globe.onGlobeReady(function () { body.classList.add("ready"); upgradeTexture(); });
+    setTimeout(function () { body.classList.add("ready"); }, 4000);
   }
 
-  // Turn to North America and show the study regions.
-  function reveal() {
-    if (!regions.length) return;
-    globe.controls().autoRotate = false;
-    document.getElementById("overlay").style.display = "none";
+  function onResize() {
+    body.classList.toggle("phone", isPhone());
+    drawStars();
+    if (!globe) {
+      if (body.classList.contains("no-globe")) panel.style.top = (bar.offsetHeight + 24) + "px";
+      return;
+    }
+    globe.width(window.innerWidth).height(window.innerHeight);
+    if (S.phase === "idle") {
+      globe.pointOfView({ altitude: idleAltitude() }, 0);
+      applyOffset();
+    } else if (S.phase === "explore" && S.lastFrame && !S.userMoved) {
+      frame(S.lastFrame, 0);
+    } else {
+      var shift = offsetFor(layout());
+      moveOffset(shift.x, shift.y, 0);
+    }
+  }
 
-    var lat = 0, lng = 0;
-    regions.forEach(function (r) {
-      lat += (r.south + r.north) / 2;
-      lng += (r.west + r.east) / 2;
+  function begin(payload) {
+    P = payload;
+    P.variables.forEach(function (v) { S.ticked[v.id] = true; });
+    body.classList.toggle("phone", isPhone());
+    drawStars();
+    renderTicks();
+    renderLegend();
+    P.regions.forEach(makeCard);
+
+    document.getElementById("start").addEventListener("click", startTour);
+    document.getElementById("close").addEventListener("click", closePanel);
+    toggle.addEventListener("change", function () {
+      if (toggle.checked) openPanel(S.region || P.regions[0].id); else closePanel();
+      toggle.checked = S.panel;
     });
-    globe.pointOfView(
-      { lat: lat / regions.length, lng: lng / regions.length, altitude: 1.5 },
-      reduceMotion ? 0 : 1500
-    );
+    container.addEventListener("pointerdown", skipTour, true);
+    window.addEventListener("keydown", function (event) {
+      if (event.key !== "Escape") return;
+      if (S.phase === "tour") skipTour(); else closePanel();
+    });
+    window.addEventListener("resize", onResize);
 
-    globe.polygonsData(regions.map(function (r) {
-      return {
-        id: r.id, label: r.label, description: r.description, color: r.color,
-        geometry: { type: "Polygon", coordinates: [boxRing(r)] }
-      };
-    }));
-    globe.htmlElementsData(regions.map(function (r) {
-      return {
-        id: r.id, label: r.label, description: r.description, color: r.color,
-        // Just above the box, so the label does not hide the highlight.
-        lat: r.north + 2.5, lng: (r.west + r.east) / 2
-      };
-    }));
-
-    hint.textContent = "Select a highlighted region to investigate it.";
-    hint.style.display = "block";
-    var first = document.querySelector(".region-label");
-    if (first) first.focus({ preventScroll: true });
+    try {
+      if (typeof Globe === "undefined" || !webglAvailable()) throw new Error("no 3D graphics");
+      startGlobe();
+    } catch (error) {
+      showWithoutGlobe();
+    }
   }
 
   var started = false;
   window.addEventListener("message", function (event) {
     if (!event.data || event.data.type !== "streamlit:render") return;
     var args = event.data.args || {};
-    send("streamlit:setFrameHeight", { height: args.height || 540 });
-    if (started) return;
+    send("streamlit:setFrameHeight", { height: 600 });   // the page CSS makes it full-screen
+    if (started || !args.payload || !args.payload.regions || !args.payload.regions.length) return;
     started = true;
     // Wait a frame so the iframe has its final size.
-    requestAnimationFrame(function () {
-      try {
-        if (typeof Globe === "undefined") throw new Error("globe library missing");
-        start(args);
-      } catch (error) {
-        showFallback();
-      }
-    });
+    requestAnimationFrame(function () { begin(args.payload); });
   });
 
   send("streamlit:componentReady", { apiVersion: 1 });

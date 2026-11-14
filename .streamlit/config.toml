@@ -1,14 +1,16 @@
-# Visual direction from the project brief §8:
-# calm, clear, welcoming, credible. Light neutral background,
-# one restrained accent color, dark readable text.
+# The app is a full-screen globe on a dark background. The background
+# colour matches ui/theme.py, so nothing flashes white while it loads.
 
 [theme]
-base = "light"
-primaryColor = "#2E5EAA"
-backgroundColor = "#FAFAFA"
-secondaryBackgroundColor = "#F0F2F6"
-textColor = "#1A1A1A"
+base = "dark"
+primaryColor = "#7FB2FF"
+backgroundColor = "#03050A"
+secondaryBackgroundColor = "#0E1524"
+textColor = "#E8ECF4"
 font = "sans serif"
+
+[client]
+toolbarMode = "minimal"
 
 [server]
 headless = true

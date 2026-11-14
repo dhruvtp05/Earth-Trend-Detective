@@ -5,18 +5,19 @@ UIC Computer Science and Data Science team.
 
 ## Scope
 
-The app investigates one variable in one region over a chosen period, and can
-compare the same variable across two regions.
+The app is one full-screen globe. It shows every delivered variable for both
+regions, each over all the years its file covers.
 
-- **Regions:** Midwest (Region B) and Southwest (Region A), as area averages.
+- **Regions:** Southwest (Region A) and Midwest (Region B), as area averages.
 - **Variables delivered:** precipitation, evaporation from land, soil
   moisture (top 10 cm), storm surface runoff.
-- **Starting example:** precipitation in the Midwest, which includes Chicago.
 
 Changed from the original brief: Section A delivered regional precipitation and
-soil moisture rather than Chicago temperature, so "Compare Two Places" moved
-from stretch to core. "Does the Time Window Matter?" is covered by the period
-slider; a dedicated side-by-side view remains a stretch.
+soil moisture rather than Chicago temperature, so both regions are shown
+together. The earlier multi-screen version (selection, result, evidence and
+compare screens, period slider, chart types, downloads) was replaced by the
+globe; choosing a period ("Does the Time Window Matter?") is no longer offered
+and remains a stretch.
 
 ## Ownership
 
@@ -69,19 +70,32 @@ estimate_trend(points, period_start, period_end, confidence_level=0.95, unit="")
 
 `services/section_b.py` currently holds a stand-in so the interface can be built
 on real data: annual means of complete years, ordinary least squares, 95%
-interval from the t distribution, and no trend below 10 complete years. Every
-screen and export marks these numbers as provisional. When Section B's method
-lands, replace the function body and set `IS_PLACEHOLDER = False`.
+interval for the slope from the t distribution, the matching 95% confidence
+band for the fitted line, and no trend below 10 complete years. The charts
+panel marks these numbers with a "Provisional" tag and a note; the labels on
+the globe itself do not carry the tag. When Section B's method lands, replace
+the function body (including `band_lower` and `band_upper`, or leave them
+`None` to draw no band) and set `IS_PLACEHOLDER = False`.
 
-## Screens
+## The globe screen
 
-1. Landing: "Explore the Midwest example" or "Choose a region".
-2. Selection: region, variable, period slider limited to available years, reset.
-3. Result: title, result sentence, trend and interval, chart, chart description
-   and tables, coverage and limitations, next actions, downloads.
-4. Evidence: dataset, variable, coverage, missing data, method, how to read
-   uncertainty, link to reproduce in Giovanni.
-5. Compare: same variable, period and method for both regions.
+1. Idle: the globe spins slowly; the only control is Start.
+2. Tour: the camera eases to the Southwest, then the Midwest, then frames
+   both. A click, tap or Esc skips it.
+3. Explore: each region shows one row of yearly stripes per ticked variable
+   (brightness = yearly average; amber = increase, violet = decrease, gray =
+   interval includes zero) and a label with the trend value, unit and a
+   "Significant" or "Inconclusive" badge. Controls: one tick box per variable
+   and the "Charts & details" switch.
+4. Charts panel (click a region or use the switch): region tabs, then for each
+   ticked variable the monthly values, annual means, fitted trend and
+   confidence band, the interval and conclusion sentences, dataset facts, the
+   Giovanni link and a table of yearly values. Close returns to the globe.
+
+Rule for colour and badge: a direction is shown only when the 95% confidence
+interval excludes zero (`services/copy.trend_direction`). On narrow screens the
+labels shorten to the row names when both regions are in view; the full label
+shows at each tour stop and in the panel.
 
 ## Open questions
 
@@ -94,9 +108,11 @@ Section A:
 Section B:
 - [ ] Trend method and how seasonality and autocorrelation are handled.
 - [ ] Minimum number of years for a valid trend.
-- [ ] Whether a chart confidence band will be supplied (none is drawn otherwise).
+- [ ] Whether a chart confidence band will be supplied. The placeholder draws
+      the ordinary least squares band; none is drawn if the method gives none.
 
 Section C:
 - [ ] Deploy to Streamlit Community Cloud and add the link to the README.
+- [ ] Try the globe on a real phone (touch drag, pinch zoom, speed).
 - [ ] Usability test with three people (Template E).
 - [ ] 30-second demo video once Section B's numbers are in.

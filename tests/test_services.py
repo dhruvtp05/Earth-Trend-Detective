@@ -152,12 +152,35 @@ def test_interval_matches_textbook_ols():
     assert trend.ci_upper == pytest.approx((slope + half) * 10, rel=1e-5)
 
 
+def test_confidence_band_matches_textbook_ols():
+    # Same data as above. The band for the fitted mean at year x is
+    # fitted ± t * s * sqrt(1/n + (x - mean)^2 / Sxx), with s^2 = SSE / (n - 2).
+    means = [1, 3, 2, 5, 4, 6, 8, 7, 9, 11]
+    points = [
+        SeriesPoint(date(2000 + index, month, 1), float(mean))
+        for index, mean in enumerate(means)
+        for month in range(1, 13)
+    ]
+    trend = section_b.estimate_trend(points, date(2000, 1, 1), date(2009, 12, 31))
+    residual_sd = ((92.4 - 84**2 / 82.5) / 8) ** 0.5
+    assert len(trend.band_lower) == len(trend.band_upper) == len(trend.fitted_values) == 10
+    for index, fitted in enumerate(trend.fitted_values):
+        half = 2.306 * residual_sd * (1 / 10 + (index - 4.5) ** 2 / 82.5) ** 0.5
+        assert trend.band_lower[index] == pytest.approx(fitted - half, rel=1e-4)
+        assert trend.band_upper[index] == pytest.approx(fitted + half, rel=1e-4)
+    # Narrowest in the middle of the record, widest at the ends.
+    widths = [high - low for low, high in zip(trend.band_lower, trend.band_upper)]
+    assert widths[0] == pytest.approx(widths[-1])
+    assert min(widths) == pytest.approx(widths[4]) and widths[4] < widths[0]
+
+
 def test_too_few_years_gives_no_numbers():
     points = _monthly(range(2000, 2005), lambda year: float(year))
     trend = section_b.estimate_trend(points, date(2000, 1, 1), date(2004, 12, 31))
     assert trend.status == "insufficient_data"
     assert trend.trend_per_decade is None and trend.ci_lower is None
     assert trend.fitted_values is None
+    assert trend.band_lower is None and trend.band_upper is None
 
 
 def test_incomplete_years_are_left_out_and_reported():
@@ -221,6 +244,51 @@ def test_insufficient_data_template():
     assert copy.conclusion_sentence(_trend(status="insufficient_data")) == (
         "There is not enough usable data to estimate a reliable trend for this selection."
     )
+
+
+def test_globe_direction_is_only_given_when_the_interval_excludes_zero():
+    rising = _trend(slope=0.5, low=0.1, high=0.9)
+    falling = _trend(slope=-0.5, low=-0.9, high=-0.1)
+    unclear_up = _trend(slope=0.5, low=-0.1, high=1.1)
+    unclear_down = _trend(slope=-0.5, low=-1.1, high=0.1)
+    assert copy.trend_direction(rising) == "increase"
+    assert copy.trend_direction(falling) == "decrease"
+    # A large slope is still not coloured when its interval includes zero.
+    assert copy.trend_direction(unclear_up) == "inconclusive"
+    assert copy.trend_direction(unclear_down) == "inconclusive"
+    assert copy.trend_direction(_trend(slope=0.5, low=0.0, high=1.0)) == "inconclusive"
+
+    assert copy.significance_badge(rising) == copy.significance_badge(falling) == "Significant"
+    assert copy.significance_badge(unclear_up) == "Inconclusive"
+    assert copy.significance_note(unclear_up) == (
+        "Inconclusive: the 95% confidence interval includes zero, so no direction is shown."
+    )
+    assert "does not say how large or important" in copy.significance_note(rising)
+
+
+@pytest.mark.parametrize("status", ["insufficient_data", "invalid_selection", "analysis_failed"])
+def test_globe_labels_show_no_numbers_without_a_trend(status):
+    trend = _trend(status=status)
+    assert copy.trend_direction(trend) == "none"
+    assert copy.significance_badge(trend) == "No trend estimated"
+    assert copy.significance_note(trend) == ""
+    assert copy.trend_value_text(trend) == "" and copy.interval_text(trend) == ""
+
+
+def test_globe_value_and_interval_labels():
+    trend = _trend(slope=-0.05, low=-0.146, high=0.046)
+    assert copy.trend_value_text(trend) == "-0.050"
+    assert copy.interval_text(trend) == "-0.146 to +0.046"
+    assert copy.trend_unit_label(trend) == "mm/day per decade"
+    assert copy.band_label(trend) == "95% confidence band for the fitted trend"
+
+
+def test_tour_visits_the_southwest_then_the_midwest():
+    assert catalog.tour_region_ids() == ["southwest", "midwest"]
+    assert catalog.region_info("southwest").letter == "A"
+    assert catalog.region_info("midwest").letter == "B"
+    assert catalog.region_info("midwest").label == "Midwest"
+    assert catalog.variable_short_label("soilmoisture") == "Soil moisture"
 
 
 def test_small_intervals_get_more_decimals():
