@@ -14,7 +14,9 @@ from datetime import date
 
 import streamlit as st
 
-from services import catalog, copy as copy_module, section_a
+from services import catalog, section_a
+
+from . import globe
 
 
 def init_state() -> None:
@@ -62,29 +64,35 @@ def render_landing() -> None:
         "understand the evidence behind them."
     )
 
-    left, right = st.columns(2, gap="large")
-    with left:
-        st.markdown("#### What you can find out")
-        st.markdown(
-            "- What is changing in a region?\n"
-            "- Over what period, and by how much?\n"
-            "- How uncertain is the estimated trend?\n"
-            "- What can we reasonably conclude?"
-        )
-    with right:
-        st.markdown("#### Start here")
-        if st.button("Explore the Midwest example", type="primary", use_container_width=True):
-            st.session_state["region_id"] = catalog.DEFAULT_REGION
-            st.session_state["variable_id"] = catalog.DEFAULT_VARIABLE
-            st.session_state["period"] = None
-            init_state()
-            go_to("results")
-        st.caption(
-            "Precipitation across the Midwest and Great Lakes, including Chicago. "
-            + copy_module.SAVED_DATA_NOTICE
-        )
-        if st.button("Choose a region", use_container_width=True):
-            go_to("select")
+    # The globe turns to North America and highlights the study regions.
+    # Picking one opens the selection screen with that region chosen.
+    chosen = globe.render(catalog.region_ids())
+    if chosen:
+        _open_region(chosen)
+
+    st.caption(
+        "Press Explore regions, then pick one of the two highlighted regions. "
+        "Each is a large area whose NASA data is averaged into one value per month."
+    )
+    # Same destination without the globe, for keyboard and screen-reader
+    # users and for browsers that cannot show 3D graphics.
+    if st.button("Choose a region from a list instead"):
+        go_to("select")
+
+    st.markdown(
+        "**What you can find out:** what is changing in a region, over what "
+        "period and by how much, how uncertain the estimated trend is, and "
+        "what can reasonably be concluded."
+    )
+
+
+def _open_region(region_id: str) -> None:
+    """Go to the selection screen with a region already chosen."""
+    state = st.session_state
+    state["region_id"] = region_id
+    for key in ("w_region", "w_variable", "w_period"):
+        state.pop(key, None)
+    go_to("select")
 
 
 def _reset_period(available: tuple[int, int]) -> None:

@@ -52,12 +52,12 @@ REGIONS: dict[str, RegionInfo] = {
     "midwest": RegionInfo(
         id="midwest",
         label="Midwest",
-        description="Midwest and Great Lakes, including Chicago",
+        description="Great Lakes area, including Chicago",
     ),
     "southwest": RegionInfo(
         id="southwest",
         label="Southwest",
-        description="Southwest, including Arizona and New Mexico",
+        description="Colorado River Basin area, including Arizona",
     ),
 }
 

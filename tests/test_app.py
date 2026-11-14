@@ -30,14 +30,36 @@ def _text(app: AppTest) -> str:
     return "\n".join(parts)
 
 
+LIST_BUTTON = "Choose a region from a list instead"
+
+
+def _open_midwest() -> AppTest:
+    """Default investigation (Midwest precipitation) via the list route."""
+    return _click(_click(_start(), LIST_BUTTON), "Investigate")
+
+
 def test_landing():
     app = _start()
     assert app.title[0].value == "Explore how a place has changed"
-    assert [b.label for b in app.button] == ["Explore the Midwest example", "Choose a region"]
+    assert [b.label for b in app.button] == [LIST_BUTTON]
+
+
+def test_globe_regions_match_the_data_boxes():
+    from services import catalog
+    from ui import globe
+
+    regions = {r["id"]: r for r in globe.globe_regions(catalog.region_ids())}
+    assert set(regions) == {"midwest", "southwest"}
+    assert [regions["midwest"][k] for k in ("west", "south", "east", "north")] == [-93, 40, -76, 49]
+    assert [regions["southwest"][k] for k in ("west", "south", "east", "north")] == [-115, 31, -106, 40]
+    assert regions["midwest"]["label"] == "US Midwest"
+    # A region without saved data is not offered.
+    assert globe.globe_regions(["midwest"])[0]["id"] == "midwest"
+    assert len(globe.globe_regions(["midwest"])) == 1
 
 
 def test_midwest_example_shows_result_chart_and_provisional_notice():
-    app = _click(_start(), "Explore the Midwest example")
+    app = _open_midwest()
     text = _text(app)
     assert "Precipitation in the Midwest, 2005–2025" in text
     assert "has an estimated trend of" in text
@@ -45,12 +67,13 @@ def test_midwest_example_shows_result_chart_and_provisional_notice():
     assert "Provisional trend" in text
     assert "not measurements at a single place" in text
     assert len(app.metric) == 2
-    assert len(app.get("plotly_chart")) == 1
+    # The data chart plus the region map.
+    assert len(app.get("plotly_chart")) == 2
     assert len(app.get("download_button")) == 2
 
 
 def test_evidence_and_back():
-    app = _click(_start(), "Explore the Midwest example")
+    app = _open_midwest()
     app = _click(app, "Inspect method and sources")
     text = _text(app)
     assert "Inspect the evidence" in text
@@ -61,17 +84,18 @@ def test_evidence_and_back():
 
 
 def test_compare_view():
-    app = _click(_start(), "Explore the Midwest example")
+    app = _open_midwest()
     app = _click(app, "Compare with the Southwest")
     text = _text(app)
     assert "Precipitation: the Midwest and the Southwest, 2005–2025" in text
     assert "does not test whether the two trends differ" in text
     assert len(app.metric) == 2
-    assert len(app.get("plotly_chart")) == 1
+    # The data chart plus the region map.
+    assert len(app.get("plotly_chart")) == 2
 
 
 def test_selection_is_preserved_and_short_period_suppresses_trend():
-    app = _click(_start(), "Choose a region")
+    app = _click(_start(), LIST_BUTTON)
     app.selectbox[0].select("southwest").run()
     app.selectbox[1].select("soilmoisture").run()
     app.slider[0].set_value((2018, 2025)).run()
@@ -96,7 +120,7 @@ def test_selection_is_preserved_and_short_period_suppresses_trend():
 
 
 def test_switching_variable_keeps_period_inside_available_years():
-    app = _click(_start(), "Choose a region")
+    app = _click(_start(), LIST_BUTTON)
     app.selectbox[1].select("soilmoisture").run()
     app.slider[0].set_value((2000, 2010)).run()
     app.selectbox[1].select("precip").run()
@@ -105,6 +129,6 @@ def test_switching_variable_keeps_period_inside_available_years():
 
 
 def test_start_over_returns_to_landing():
-    app = _click(_start(), "Explore the Midwest example")
+    app = _open_midwest()
     app = _click(app, "Start over")
     assert app.title[0].value == "Explore how a place has changed"

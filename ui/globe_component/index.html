@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rotating globe showing the study regions</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: transparent;
+    font-family: "Source Sans Pro", "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #1A1A1A;
+  }
+  #globe { position: absolute; inset: 0; cursor: grab; }
+  #overlay {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; pointer-events: none;
+  }
+  button { font: inherit; }
+  #explore {
+    pointer-events: auto; cursor: pointer;
+    font-size: 1.2rem; font-weight: 600; letter-spacing: 0.01em;
+    padding: 0.85rem 1.9rem; border-radius: 999px;
+    color: #FFFFFF; background: #2E5EAA; border: 2px solid #FFFFFF;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.4);
+  }
+  #explore:hover { background: #244C8C; }
+  button:focus-visible { outline: 3px solid #FFD166; outline-offset: 3px; }
+  #hint {
+    position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%);
+    display: none; white-space: nowrap; max-width: 96%;
+    padding: 0.35rem 0.9rem; border-radius: 999px; font-size: 0.95rem;
+    background: rgba(255, 255, 255, 0.94); border: 1px solid #D5D9E0;
+  }
+  .region-label {
+    pointer-events: auto; cursor: pointer; white-space: nowrap;
+    padding: 0.3rem 0.7rem; border-radius: 8px; font-size: 0.95rem; font-weight: 600;
+    color: #1A1A1A; background: rgba(255, 255, 255, 0.95);
+    border: 2px solid currentColor; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+  .region-label:hover { background: #FFFFFF; transform: scale(1.05); }
+  .tip {
+    padding: 0.35rem 0.6rem; border-radius: 6px; font-size: 0.85rem;
+    color: #1A1A1A; background: rgba(255, 255, 255, 0.96); border: 1px solid #D5D9E0;
+  }
+  #fallback {
+    display: none; position: absolute; inset: 0; align-items: center;
+    justify-content: center; text-align: center; padding: 1rem;
+  }
+</style>
+</head>
+<body>
+<div id="globe" aria-hidden="true"></div>
+<div id="overlay"><button id="explore" type="button">Explore regions</button></div>
+<div id="hint" role="status" aria-live="polite"></div>
+<div id="fallback">The 3D globe could not be shown in this browser. Use the button below the globe to choose a region.</div>
+
+<script src="globe.gl.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // --- Minimal Streamlit component protocol -------------------------------
+  function send(type, data) {
+    window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: type }, data), "*");
+  }
+
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var container = document.getElementById("globe");
+  var exploreButton = document.getElementById("explore");
+  var hint = document.getElementById("hint");
+  var globe = null;
+  var regions = [];
+
+  function escapeHtml(text) {
+    var node = document.createElement("span");
+    node.textContent = text;
+    return node.innerHTML;
+  }
+
+  function withAlpha(hex, alpha) {
+    var value = parseInt(hex.slice(1), 16);
+    return "rgba(" + (value >> 16) + "," + ((value >> 8) & 255) + "," + (value & 255) + "," + alpha + ")";
+  }
+
+  // Outline of a latitude/longitude box, with a point every degree so the
+  // edges follow the parallels and meridians. Clockwise, as d3-geo expects.
+  function boxRing(r) {
+    var points = [], v;
+    for (v = r.south; v < r.north; v += 1) points.push([r.west, v]);
+    for (v = r.west; v < r.east; v += 1) points.push([v, r.north]);
+    for (v = r.north; v > r.south; v -= 1) points.push([r.east, v]);
+    for (v = r.east; v > r.west; v -= 1) points.push([v, r.south]);
+    points.push([r.west, r.south]);
+    return points;
+  }
+
+  function choose(regionId) {
+    send("streamlit:setComponentValue", {
+      value: { region: regionId, nonce: Date.now() },
+      dataType: "json"
+    });
+  }
+
+  function showFallback() {
+    document.getElementById("overlay").style.display = "none";
+    container.style.display = "none";
+    document.getElementById("fallback").style.display = "flex";
+  }
+
+  function start(args) {
+    regions = args.regions || [];
+    globe = new Globe(container)
+      .globeImageUrl("earth-blue-marble.jpg")
+      .backgroundColor("rgba(0,0,0,0)")
+      .showAtmosphere(true)
+      .atmosphereColor("#9CC3FF")
+      .atmosphereAltitude(0.16)
+      .width(window.innerWidth)
+      .height(window.innerHeight)
+      .polygonsData([])
+      .polygonCapColor(function (d) { return withAlpha(d.color, 0.55); })
+      .polygonSideColor(function () { return "rgba(0,0,0,0)"; })
+      .polygonStrokeColor(function () { return "#FFFFFF"; })
+      .polygonAltitude(0.012)
+      .polygonsTransitionDuration(0)
+      .polygonLabel(function (d) {
+        return '<div class="tip"><b>' + escapeHtml(d.label) + "</b><br>" + escapeHtml(d.description) + "</div>";
+      })
+      .onPolygonHover(function (d) { container.style.cursor = d ? "pointer" : "grab"; })
+      .onPolygonClick(function (d) { choose(d.id); })
+      .htmlElementsData([])
+      .htmlLat(function (d) { return d.lat; })
+      .htmlLng(function (d) { return d.lng; })
+      .htmlAltitude(0.03)
+      .htmlElement(function (d) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "region-label";
+        button.style.color = d.color;
+        button.innerHTML = '<span style="color:#1A1A1A">' + escapeHtml(d.label) + "</span>";
+        button.setAttribute("aria-label", "Explore " + d.label + ": " + d.description);
+        button.addEventListener("click", function () { choose(d.id); });
+        return button;
+      });
+
+    // Altitudes of about 1.4 and above keep the whole sphere inside the frame.
+    globe.pointOfView({ lat: 18, lng: -20, altitude: 1.7 }, 0);
+    var controls = globe.controls();
+    controls.enableZoom = false;          // keep page scrolling normal
+    controls.autoRotate = !reduceMotion;
+    controls.autoRotateSpeed = 0.8;
+
+    exploreButton.addEventListener("click", reveal);
+    window.addEventListener("resize", function () {
+      globe.width(window.innerWidth).height(window.innerHeight);
+    });
+  }
+
+  // Turn to North America and show the study regions.
+  function reveal() {
+    if (!regions.length) return;
+    globe.controls().autoRotate = false;
+    document.getElementById("overlay").style.display = "none";
+
+    var lat = 0, lng = 0;
+    regions.forEach(function (r) {
+      lat += (r.south + r.north) / 2;
+      lng += (r.west + r.east) / 2;
+    });
+    globe.pointOfView(
+      { lat: lat / regions.length, lng: lng / regions.length, altitude: 1.5 },
+      reduceMotion ? 0 : 1500
+    );
+
+    globe.polygonsData(regions.map(function (r) {
+      return {
+        id: r.id, label: r.label, description: r.description, color: r.color,
+        geometry: { type: "Polygon", coordinates: [boxRing(r)] }
+      };
+    }));
+    globe.htmlElementsData(regions.map(function (r) {
+      return {
+        id: r.id, label: r.label, description: r.description, color: r.color,
+        // Just above the box, so the label does not hide the highlight.
+        lat: r.north + 2.5, lng: (r.west + r.east) / 2
+      };
+    }));
+
+    hint.textContent = "Select a highlighted region to investigate it.";
+    hint.style.display = "block";
+    var first = document.querySelector(".region-label");
+    if (first) first.focus({ preventScroll: true });
+  }
+
+  var started = false;
+  window.addEventListener("message", function (event) {
+    if (!event.data || event.data.type !== "streamlit:render") return;
+    var args = event.data.args || {};
+    send("streamlit:setFrameHeight", { height: args.height || 540 });
+    if (started) return;
+    started = true;
+    // Wait a frame so the iframe has its final size.
+    requestAnimationFrame(function () {
+      try {
+        if (typeof Globe === "undefined") throw new Error("globe library missing");
+        start(args);
+      } catch (error) {
+        showFallback();
+      }
+    });
+  });
+
+  send("streamlit:componentReady", { apiVersion: 1 });
+})();
+</script>
+</body>
+</html>

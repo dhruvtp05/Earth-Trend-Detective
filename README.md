@@ -92,6 +92,9 @@ The interface never:
 app.py                  entry point and routing
 ui/
   explore.py            landing and selection screens
+  globe.py              rotating 3D globe on the landing screen
+  globe_component/      globe library, NASA Blue Marble texture, credits
+  region_map.py         flat map of the two study regions
   results.py            result sentence, trend, chart, downloads
   compare.py            two regions side by side
   evidence.py           dataset, method and sources
