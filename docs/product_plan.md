@@ -82,12 +82,16 @@ the function body (including `band_lower` and `band_upper`, or leave them
 1. Idle: the globe spins slowly under the app title; the only control is Start.
 2. Tour: the camera eases to the Southwest, then the Midwest, then frames
    both. A click, tap or Esc skips it.
-3. Explore: each region shows one row of yearly stripes per ticked variable
-   (brightness = yearly average; amber = increase, violet = decrease, gray =
-   interval includes zero) and a label with the trend value, unit and a
-   "Significant" or "Inconclusive" badge. A color key shows the three color
-   scales. Controls: one tick box per variable and the "Charts & details"
-   switch.
+3. Explore: each region is a hub (its name) on the middle of its study box,
+   with one block per ticked variable around it, joined by red wires. A block
+   is a row of yearly stripes (brightness = yearly average) over the
+   variable's name, trend value and unit, and a "Significant" or
+   "Inconclusive" badge. Color names the variable (precipitation orange,
+   evaporation teal, soil moisture brown, runoff violet); stripes are faded
+   when the interval includes zero. Pointing at a hub or a block lights the
+   wires that join them; clicking a block opens the charts panel at that
+   variable. A color key shows the four colors and the faded look. Controls:
+   one tick box per variable and the "Charts & details" switch.
 4. Charts panel (click a region or use the switch; about 40% of a laptop
    window, a bottom sheet on a phone): region tabs, an "At a glance" line per
    ticked variable in plain words, then one card per variable with its
@@ -97,12 +101,12 @@ the function body (including `band_lower` and `band_upper`, or leave them
    interval sentences. Dataset facts, the Giovanni link and the yearly values
    are folded under each card. Close returns to the globe.
 
-Rule for color, badge and headline: a direction is shown only when the 95%
-confidence interval excludes zero (`services/copy.trend_direction`). "No clear
-trend" means the data cannot tell a rise from a fall; it is never worded as
-"no change". On narrow screens the
-labels shorten to the row names when both regions are in view; the full label
-shows at each tour stop and in the panel.
+Rule for arrow, badge, headline and full color: a direction is shown only when
+the 95% confidence interval excludes zero (`services/copy.trend_direction`).
+"No clear trend" means the data cannot tell a rise from a fall; it is never
+worded as "no change". In smaller windows the blocks drop the trend value,
+then the badge, and on a phone with both regions in view only the hubs show;
+the full labels are always in the panel.
 
 ## Open questions
 

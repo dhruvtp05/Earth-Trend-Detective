@@ -4,20 +4,30 @@
 <meta charset="utf-8">
 <title>Earth Trend Detective globe</title>
 <style>
+  @font-face {
+    font-family: "Archivo Black"; src: url("archivo-black-latin.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
+  }
   :root {
-    --inc: #FFB000; --dec: #B79CFF; --neu: #A7AEBA;
+    color-scheme: dark;
+    /* Color names the variable (see VAR_COLOR), so a rise and a fall share
+       the text color; the arrow and the words give the direction. */
+    --inc: #EAF0FA; --dec: #EAF0FA; --neu: #A7AEBA;
     --ink: #EAF0FA; --dim: #9AA6B8; --accent: #7FB2FF;
-    --glass: rgba(9, 15, 27, 0.80); --line: rgba(255, 255, 255, 0.16);
+    /* Dark green takes the place of black; yellow lettering and red wires. */
+    --glass: rgba(6, 30, 20, 0.80); --line: rgba(255, 255, 255, 0.16);
+    --crawl: #FFE81F; --wire: #E0261C; --wire-hot: #FF4A3D;
+    --display: "Archivo Black", "Arial Black", Impact, "Franklin Gothic Heavy", sans-serif;
     --panel-w: clamp(380px, 40vw, 820px);   /* charts panel : globe = 40 : 60 */
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; height: 100%; overflow: hidden; color: var(--ink);
-    background: #03050A;
+    background: #020A06;
     font-family: "Source Sans 3", "Source Sans Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
-  body { background: radial-gradient(ellipse at 50% 42%, #0C1830 0%, #050912 55%, #03050A 100%); }
+  body { background: radial-gradient(ellipse at 50% 42%, #0E3A27 0%, #06190F 55%, #020A06 100%); }
   button, input { font: inherit; color: inherit; }
   button:focus-visible, input:focus-visible, a:focus-visible, summary:focus-visible, .pbody:focus-visible {
     outline: 3px solid #FFD166; outline-offset: 2px;
@@ -31,20 +41,27 @@
   #title {
     position: absolute; left: 0; right: 0; top: max(4.5vh, 16px); z-index: 2;
     margin: 0; padding: 0 1rem; text-align: center; pointer-events: none;
-    font-size: clamp(1.6rem, 4.2vw, 2.9rem); font-weight: 800; letter-spacing: 0.03em; line-height: 1.1;
-    text-shadow: 0 2px 18px rgba(3, 5, 10, 0.95), 0 0 3px rgba(3, 5, 10, 0.9);
+    font-family: var(--display); font-size: clamp(1.7rem, 5.2vw, 3.9rem); font-weight: 400;
+    letter-spacing: 0.02em; line-height: 1; text-transform: uppercase; color: var(--crawl);
     opacity: 0; visibility: hidden; transition: opacity 0.6s ease, visibility 0s 0.6s;
+  }
+  /* Hollow yellow letters, after the Star Wars logo. Solid where outlining is not supported. */
+  @supports (-webkit-text-stroke: 1px black) {
+    #title {
+      color: transparent; -webkit-text-stroke: clamp(1.4px, 0.045em, 2.6px) var(--crawl);
+      filter: drop-shadow(0 0 12px rgba(255, 232, 31, 0.28));
+    }
   }
   body.idle.ready #title { opacity: 1; visibility: visible; transition: opacity 0.6s ease; }
   #start {
     position: absolute; left: 50%; bottom: max(9vh, 36px); transform: translateX(-50%);
     min-height: 52px; padding: 0 2.8rem; border: 0; border-radius: 999px; cursor: pointer;
     font-size: 1.1rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
-    color: #06101F; background: #FFFFFF;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5), 0 10px 44px rgba(127, 178, 255, 0.55);
+    color: #06190F; background: var(--crawl);
+    box-shadow: 0 0 0 1px rgba(255, 232, 31, 0.5), 0 10px 44px rgba(255, 232, 31, 0.35);
     opacity: 0; visibility: hidden; transition: opacity 0.6s ease, visibility 0s 0.6s;
   }
-  #start:hover { background: #DCEAFF; }
+  #start:hover { background: #FFF27A; }
   body.idle.ready #start { opacity: 1; visibility: visible; transition: opacity 0.6s ease; }
 
   /* ---- Variable ticks and the details switch ---------------------------- */
@@ -103,73 +120,86 @@
   }
   .kitems { display: flex; flex-wrap: wrap; gap: 0.35rem 1.1rem; margin-bottom: 0.45rem; }
   .kitem { display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 700; white-space: nowrap; }
-  .kitem.increase { color: var(--inc); } .kitem.decrease { color: var(--dec); } .kitem.inconclusive { color: var(--neu); }
+  .kitem { color: var(--ink); } .kitem.faded { color: var(--neu); }
   /* Drawn with the same colors as the stripes, darkest to brightest. */
   .kramp {
     display: inline-block; width: 56px; height: 13px; flex: none; border-radius: 3px;
     border: 1px solid rgba(255, 255, 255, 0.28);
   }
 
-  /* ---- Region cards pinned to the globe --------------------------------- */
+  /* ---- Region clusters pinned to the globe --------------------------------
+     A hub with the region's name sits on the centre of its study box. One
+     block per ticked variable sits around it, joined to the hub by a wire.
+     Sizes and positions are set in applyGeometry(). */
   .pin { width: 0; height: 0; }
-  .card {
-    position: absolute; left: 0; bottom: 10px; transform: translateX(-50%);
-    display: grid; grid-template-columns: auto auto auto auto; column-gap: 0.5rem; row-gap: 0.28rem;
-    align-items: baseline; text-align: left; white-space: nowrap;
-    pointer-events: auto; cursor: pointer;
-    padding: 0.5rem 0.7rem 0.6rem; border-radius: 12px; color: var(--ink);
-    background: var(--glass); border: 1px solid var(--line);
-    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  .cluster { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); pointer-events: none; }
+  .wires { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
+  .wire {
+    stroke: var(--wire); stroke-width: 2; stroke-linecap: round; opacity: 0.9;
+    transition: stroke 0.2s ease, stroke-width 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
   }
-  .card:hover, .card.sel { border-color: #FFFFFF; }
-  .card-title {
-    grid-column: 1 / -1; font-size: 0.8rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  .wire.hot {
+    stroke: var(--wire-hot); stroke-width: 3.2; opacity: 1;
+    filter: drop-shadow(0 0 4px var(--wire-hot)) drop-shadow(0 0 11px rgba(255, 74, 61, 0.75));
   }
-  .row { display: contents; }
-  .row > span { font-size: 0.86rem; grid-row: calc(var(--i) + 2); }
-  .row .glyph { grid-column: 1; } .row .name { grid-column: 2; }
-  .row .val { grid-column: 3; } .row .badge { grid-column: 4; }
-  .unit .short { display: none; }
-  .row .name { font-weight: 600; }
-  .row .val { font-variant-numeric: tabular-nums; font-weight: 700; }
+  /* The hub: 60% see-through dark green, lettering after the Star Wars logo. */
+  .hub {
+    position: absolute; pointer-events: auto; cursor: pointer; white-space: nowrap;
+    padding: 0.72rem 1.15rem 0.62rem; border-radius: 12px; line-height: 1;
+    background: rgba(8, 46, 30, 0.40); border: 1.5px solid rgba(255, 232, 31, 0.55);
+    color: var(--crawl); font-family: var(--display); font-size: 1.05rem; font-weight: 400;
+    letter-spacing: 0.07em; text-transform: uppercase; text-shadow: 0 1px 6px rgba(2, 10, 6, 0.9);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  }
+  .hub.hot, .hub.sel {
+    border-color: var(--crawl); background: rgba(8, 46, 30, 0.55);
+    box-shadow: 0 0 0 1px rgba(255, 232, 31, 0.45), 0 0 22px rgba(255, 232, 31, 0.45);
+  }
+  /* A block: yearly stripes over one line of text, 20% see-through. */
+  .block {
+    position: absolute; pointer-events: auto; cursor: pointer; display: block; padding: 0; overflow: hidden;
+    border: 1px solid var(--line); border-radius: 6px; background: rgb(6, 30, 20); color: var(--ink);
+    text-align: left; opacity: 0.8;
+    transition: opacity 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .block.hot { opacity: 1; border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 0 22px -2px var(--c); }
+  .bars { display: flex; height: 44px; }
+  .bars i { flex: 1 1 0; min-width: 0; }
+  .cap { display: flex; align-items: center; gap: 0.42rem; padding: 0.3rem 0.5rem 0.34rem; font-size: 0.78rem; white-space: nowrap; }
+  .cap .name { font-weight: 700; }
+  .cap .val { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .cap .badge { margin-left: auto; }
   .unit { font-weight: 400; color: #C9D3E3; }
   .badge {
     justify-self: start; align-self: center; padding: 0.08rem 0.42rem; border-radius: 999px;
     border: 1px solid currentColor; font-size: 0.66rem !important; font-weight: 800;
     letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap;
   }
+  /* Direction is carried by the arrow and the words, not by color: color
+     names the variable. An inconclusive result is grayed. */
   .increase .glyph, .increase .badge, .badge.increase, .glyph.increase { color: var(--inc); }
   .decrease .glyph, .decrease .badge, .badge.decrease, .glyph.decrease { color: var(--dec); }
   .inconclusive .glyph, .inconclusive .badge, .inconclusive .val, .inconclusive .unit,
   .none .glyph, .none .badge, .badge.inconclusive, .badge.none, .glyph.inconclusive, .glyph.none { color: var(--neu); }
-  /* Phone: name and badge on one line, value and unit on the next. */
-  body.phone .card { grid-template-columns: auto 1fr auto; column-gap: 0.4rem; row-gap: 0; padding: 0.4rem 0.55rem 0.5rem; }
-  body.phone .row > span { font-size: 0.78rem; grid-row: calc(var(--i) * 2 + 2); margin-top: 0.3rem; }
-  body.phone .row .badge { grid-column: 3; justify-self: end; font-size: 0.6rem !important; }
-  body.phone .row .val { grid-column: 2 / 4; grid-row: calc(var(--i) * 2 + 3); margin-top: 0; }
-  body.phone .unit .long { display: none; }
-  body.phone .unit .short { display: inline; }
-  /* A card may hang below its region when two cards would collide. */
-  .card.below { bottom: auto; top: 10px; }
-  /* Tight screens: the card only names each row of stripes. The value,
-     unit and badge show when one region is in focus, and in the panel. */
-  body.summary .row .val, body.summary .row .badge { display: none; }
-  body.summary .row > span { grid-row: calc(var(--i) + 2); margin-top: 0.15rem; }
-  body.nocards .card { display: none; }
-  #measure { position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: none; }
-  #measure .card { position: static; transform: none; }
+  /* Tighter styles for smaller windows (see CLUSTER_STYLES). */
+  .cluster.compact .val, .cluster.mini .val, .cluster.mini .badge { display: none; }
+  .cluster.mini .bars { height: 26px; }
+  .cluster.mini .cap { font-size: 0.74rem; padding: 0.2rem 0.4rem 0.24rem; }
+  .cluster.hubonly .block, .cluster.hubonly .wires { display: none; }
+  body.phone .hub { font-size: 0.92rem; padding: 0.6rem 0.9rem 0.52rem; }
+  #measure { position: absolute; left: 0; top: 0; width: 2400px; visibility: hidden; pointer-events: none; }
+  #measure .cluster { position: static; transform: none; }
 
   .tip {
     padding: 0.4rem 0.6rem; border-radius: 8px; font-size: 0.82rem; line-height: 1.35; color: var(--ink);
-    background: rgba(9, 15, 27, 0.95); border: 1px solid var(--line);
+    background: rgba(6, 30, 20, 0.95); border: 1px solid var(--line);
   }
 
   /* ---- Charts and details panel ----------------------------------------- */
   #panel {
     position: absolute; top: 0; right: 0; bottom: 0; width: var(--panel-w); z-index: 5;
     display: flex; flex-direction: column;
-    background: rgba(7, 12, 22, 0.93); border-left: 1px solid var(--line);
+    background: rgba(5, 22, 15, 0.94); border-left: 1px solid var(--line);
     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
     transform: translateX(100%); visibility: hidden;
     transition: transform 0.35s ease, visibility 0s 0.35s;
@@ -231,7 +261,9 @@
     margin-top: 0.9rem; padding: 0.9rem 1rem 1rem; border-radius: 12px;
     border: 1px solid var(--line); border-left: 4px solid var(--neu); background: rgba(255, 255, 255, 0.035);
   }
-  .var.increase { border-left-color: var(--inc); } .var.decrease { border-left-color: var(--dec); }
+  .var { border-left-color: var(--c, var(--neu)); transition: box-shadow 0.5s ease; scroll-margin-top: 10px; }
+  /* The card a block on the globe led to, lit for a moment. */
+  .var.target { box-shadow: 0 0 0 1.5px var(--c, var(--accent)), 0 0 26px -4px var(--c, var(--accent)); }
   .vhead { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
   .vhead h3 { margin: 0; font-size: 1.1rem; }
   .def { margin: 0.25rem 0 0; max-width: 70ch; font-size: 0.86rem; line-height: 1.4; color: #B6C1D3; }
@@ -277,7 +309,7 @@
   body.no-globe .switch, body.no-globe #close { display: none; }
 
   @media (prefers-reduced-motion: reduce) {
-    #panel, #bar, #legend, #start, #title { transition: none !important; }
+    #panel, #bar, #legend, #start, #title, .wire, .hub, .block, .var { transition: none !important; }
   }
 </style>
 </head>
@@ -322,10 +354,18 @@
   var PHONE_WIDTH = 720;
   var FIRST_MOVE = 2800, MOVE = 2200, HOLD = 1500;   // camera tour, milliseconds
   var MIN_ALTITUDE = 0.42, MAX_ALTITUDE = 4;
-  var CARD_GAP = 10;                                 // px between a region and its card
   var GLYPH = { increase: "\u25B2", decrease: "\u25BC", inconclusive: "\u25CF", none: "\u25CB" };
-  // Hue and saturation by trend direction. Lightness carries the yearly value.
-  var HUE = { increase: [41, 100], decrease: [262, 88], inconclusive: [218, 7], none: [218, 7] };
+  // Color names the variable: [hue, saturation, darkest lightness, lightness
+  // range]. Lightness carries the yearly value. Precipitation is orange,
+  // evaporation teal, soil moisture brown and runoff violet.
+  var VAR_COLOR = {
+    precip: [32, 100, 24, 58],
+    evap: [176, 72, 20, 56],
+    soilmoisture: [14, 62, 12, 38],                  // a deep red-brown, well clear of a faded orange
+    runoff: [262, 88, 24, 58]
+  };
+  var OTHER_COLOR = [205, 70, 22, 58];               // a variable the list above does not know
+  var FADED = 0.22;                                  // share of the saturation an inconclusive result keeps
 
   var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var body = document.body;
@@ -337,7 +377,7 @@
 
   var P = null;            // payload from Python
   var globe = null;
-  var cards = {};          // region id -> { data, button }
+  var clusters = {};       // region id -> { el, data }
   var timers = [];
   var offset = { x: 0, y: 0 }, offsetAnimation = 0;
   var S = {
@@ -346,6 +386,7 @@
     shown: [],             // region ids revealed so far
     region: null,          // region in the panel
     panel: false,
+    style: "full",         // how much each block shows (see CLUSTER_STYLES)
     userMoved: false,      // the visitor has moved the camera since the last framing
     lastFrame: null,
     skippedAt: 0
@@ -374,10 +415,17 @@
     }
     return "#" + channel(0) + channel(8) + channel(4);
   }
-  // Colour of one yearly stripe: hue by trend direction, brightness by value.
-  function shade(direction, t) {
-    var hue = HUE[direction] || HUE.none;
-    return hslHex(hue[0], hue[1], 24 + 58 * t);
+  // Color of one yearly stripe: hue by variable, brightness by value. A
+  // result whose interval includes zero (or with no trend) is faded.
+  function shade(v, direction, t) {
+    var c = VAR_COLOR[v] || OTHER_COLOR;
+    var clear = direction === "increase" || direction === "decrease";
+    return hslHex(c[0], c[1] * (clear ? 1 : FADED), c[2] + c[3] * t);
+  }
+  // The variable's color at full strength, for edges and glows.
+  function accent(v) {
+    var c = VAR_COLOR[v] || OTHER_COLOR;
+    return hslHex(c[0], c[1], c[2] + c[3] * 0.72);
   }
 
   // Outline of a latitude/longitude box, with a point every degree so the
@@ -479,111 +527,217 @@
     return { x: L.W / 2 - (L.x + L.w / 2), y: L.H / 2 - (L.y + L.h / 2) };
   }
 
-  function cardSize(id) {
-    var button = cards[id].button;
-    if (button.offsetWidth) return [button.offsetWidth, button.offsetHeight];
+  // --- Region clusters --------------------------------------------------------
+  // Each region is drawn as a hub (its name) pinned to the centre of its
+  // study box, with one block per ticked variable around it and a wire from
+  // the hub to each block. Styles, most informative first: `full` blocks
+  // (stripes, name, trend, badge), `compact` (no trend value), `mini`
+  // (stripes and name), then `hubonly` when even that does not fit. The
+  // charts panel always has the full labels.
+  var CLUSTER_STYLES = ["full", "compact", "mini", "hubonly"];
+  var CLUSTER_MARGIN = 12;      // px kept clear between two clusters
+  var geometryCache = {};
+
+  // One stripe per year of the whole period, so every block shares a time
+  // axis. Years before a record starts are left blank.
+  function stripesHtml(v, result) {
+    var annual = result.annual, html = "";
+    var low = annual.mean.length ? minOf(annual.mean) : 0, high = annual.mean.length ? maxOf(annual.mean) : 0;
+    for (var year = P.first_year; year <= P.last_year; year++) {
+      var index = annual.years.indexOf(year);
+      if (index < 0) { html += "<i></i>"; continue; }
+      var t = high > low ? (annual.mean[index] - low) / (high - low) : 0.5;
+      html += '<i style="background:' + shade(v, result.direction, t) + '" title="' +
+        esc(year + " yearly average: " + fmt(annual.mean[index]) + " " + result.unit) + '"></i>';
+    }
+    return html;
+  }
+
+  function blockHtml(g, v) {
+    var result = P.results[g.id][v];
+    var value = result.trend_text
+      ? esc(result.trend_text) + ' <span class="unit">' + esc(result.trend_unit_short) + "</span>"
+      : "";
+    var spoken = g.label + ", " + result.label + ": " +
+      (result.trend_text ? result.trend_text + " " + result.trend_unit + ", " : "") +
+      result.badge + ". Open its chart.";
+    return '<button type="button" class="block ' + result.direction + '" data-v="' + esc(v) +
+      '" style="--c:' + accent(v) + '" aria-label="' + esc(spoken) + '">' +
+      '<span class="bars" aria-hidden="true">' + stripesHtml(v, result) + "</span>" +
+      '<span class="cap"><span class="glyph" aria-hidden="true">' + GLYPH[result.direction] + "</span>" +
+      '<span class="name">' + esc(variable(v).short) + "</span>" +
+      '<span class="val">' + value + "</span>" +
+      '<span class="badge" title="' + esc(result.badge_note) + '">' + esc(result.badge) + "</span></span></button>";
+  }
+
+  function clusterHtml(g) {
+    var selected = S.panel && S.region === g.id;
+    return '<svg class="wires" aria-hidden="true"></svg>' +
+      '<button type="button" class="hub' + (selected ? " sel" : "") + '" aria-label="' +
+      esc(g.label + ": open charts and details") + '">' + esc(g.label) + "</button>" +
+      tickedIds(g.id).map(function (v) { return blockHtml(g, v); }).join("");
+  }
+
+  // Size of a cluster in one style, and where its blocks go. Blocks take
+  // the four corners around the hub: upper left, upper right, lower left,
+  // lower right, with two of them set a little further out.
+  function measureCluster(g, style) {
+    var key = [g.id, style, tickedIds(g.id).join(","), body.classList.contains("phone")].join("|");
+    if (geometryCache[key]) return geometryCache[key];
     var box = document.getElementById("measure");
+    box.innerHTML = '<div class="cluster ' + style + '">' + clusterHtml(g) + "</div>";
+    var hub = box.querySelector(".hub");
+    var geo = { hw: Math.ceil(hub.offsetWidth), hh: Math.ceil(hub.offsetHeight), bw: 0, bh: 0, slots: [] };
+    var count = 0;
+    if (style !== "hubonly") {
+      Array.prototype.forEach.call(box.querySelectorAll(".block"), function (block) {
+        geo.bw = Math.max(geo.bw, Math.ceil(block.offsetWidth));
+        geo.bh = Math.max(geo.bh, Math.ceil(block.offsetHeight));
+        count++;
+      });
+    }
     box.innerHTML = "";
-    var copy = box.appendChild(button.cloneNode(true));
-    var size = [copy.offsetWidth, copy.offsetHeight];
-    box.innerHTML = "";
-    return size;
+    if (!count) {
+      geo.w = geo.hw; geo.h = geo.hh;
+    } else {
+      var inner = Math.round(geo.hw * 0.22), gapY = style === "full" ? 30 : 22, lift = 12, ringStep = geo.bh + 10;
+      var rings = Math.ceil(count / 4) - 1;
+      var halfW = inner + geo.bw, halfH = geo.hh / 2 + gapY + geo.bh + lift + rings * ringStep;
+      for (var i = 0; i < count; i++) {
+        var corner = i % 4, ring = Math.floor(i / 4);
+        var out = gapY + (corner === 0 || corner === 3 ? lift : 0) + ring * ringStep;
+        geo.slots.push({
+          x: halfW + (corner % 2 === 0 ? -(inner + geo.bw) : inner),
+          y: halfH + (corner < 2 ? -(geo.hh / 2 + out + geo.bh) : geo.hh / 2 + out)
+        });
+      }
+      geo.w = 2 * halfW; geo.h = 2 * halfH;
+    }
+    geometryCache[key] = geo;
+    return geo;
   }
 
-  // Card styles, most informative first: full cards, then `summary` cards
-  // that only name the rows, then no cards at all (a phone with the charts
-  // sheet open, where the sheet shows the same labels). Within a style a
-  // card sits above its region unless hanging one of two cards below its
-  // region ("upper" or "lower": the more northerly or southerly one) lets
-  // the regions be drawn clearly larger.
-  var CARD_STYLES = [
-    { summary: false, hidden: false, below: ["none", "upper", "lower"] },
-    { summary: true, hidden: false, below: ["none", "upper", "lower"] },
-    { summary: true, hidden: true, below: ["none"] }
-  ];
-  var MIN_REGION_WIDTH = 60;   // px: below this the yearly stripes are too thin
-
-  function overlaps(a, b, margin) {
-    return a.l < b.r + margin && b.l < a.r + margin && a.b < b.t + margin && b.b < a.t + margin;
+  // Place the hub, the blocks and the wires inside a cluster element.
+  function applyGeometry(el, geo) {
+    var cx = geo.w / 2, cy = geo.h / 2, lines = "";
+    el.style.width = geo.w + "px";
+    el.style.height = geo.h + "px";
+    var hub = el.querySelector(".hub");
+    hub.style.left = (cx - geo.hw / 2) + "px";
+    hub.style.top = (cy - geo.hh / 2) + "px";
+    Array.prototype.forEach.call(el.querySelectorAll(".block"), function (block, i) {
+      var slot = geo.slots[i];
+      if (!slot) return;
+      block.style.left = slot.x + "px";
+      block.style.top = slot.y + "px";
+      block.style.width = geo.bw + "px";
+      // The wire runs from the middle of the hub to the nearest point of the block.
+      var tx = Math.max(slot.x, Math.min(cx, slot.x + geo.bw));
+      var ty = Math.max(slot.y, Math.min(cy, slot.y + geo.bh));
+      lines += '<line class="wire" data-v="' + esc(block.getAttribute("data-v")) + '" x1="' + cx + '" y1="' + cy +
+        '" x2="' + tx + '" y2="' + ty + '"/>';
+    });
+    el.querySelector(".wires").innerHTML = lines;
   }
 
-  function useCardStyle(style) {
-    body.classList.toggle("summary", style.summary);
-    body.classList.toggle("nocards", style.hidden);
+  function renderClusters() {
+    P.regions.forEach(function (g) {
+      var el = clusters[g.id].el;
+      el.className = "cluster " + S.style;
+      el.innerHTML = clusterHtml(g);
+      applyGeometry(el, measureCluster(g, S.style));
+    });
   }
 
-  // Largest scale at which the regions and their cards fit the free part of
-  // the window with one card style and placement, and whether that result
-  // is good enough. Pixels are measured from the reference point: x to the
-  // right, y upwards.
-  function solve(regions, L, style, placement) {
-    useCardStyle(style);                                      // before measuring cards
+  // Scale and camera target at which the regions, with their clusters in
+  // one style, fit the free part of the window without the clusters
+  // touching. Pixels are measured from the reference point: x to the
+  // right, y upwards. `p` is pixels per radian on the ground.
+  function fitClusters(regions, L, style) {
     var pad = L.phone ? 12 : 30;
     var availW = L.w - 2 * pad, availH = L.h - 2 * pad;
-    var refLat = 0, refLng = 0, lower = regions[0], upper = regions[0];
+    var refLat = 0, refLng = 0;
     regions.forEach(function (g) {
       refLat += (g.south + g.north) / 2;
       refLng += (g.west + g.east) / 2;
-      if (g.south + g.north < lower.south + lower.north) lower = g;
-      if (g.south + g.north > upper.south + upper.north) upper = g;
     });
     refLat /= regions.length; refLng /= regions.length;
     var k = Math.cos(rad(refLat));
-    var below = {}, sizes = {};
-    if (regions.length === 2 && placement === "lower") below[lower.id] = true;
-    if (regions.length === 2 && placement === "upper") below[upper.id] = true;
-    regions.forEach(function (g) { sizes[g.id] = style.hidden ? [0, -CARD_GAP] : cardSize(g.id); });
+    var items = regions.map(function (g) {
+      return {
+        g: g, geo: measureCluster(g, style),
+        ux: rad((g.west + g.east) / 2 - refLng) * k, uy: rad((g.south + g.north) / 2 - refLat)
+      };
+    });
 
-    function place(p) {
-      return regions.map(function (g) {
-        var size = sizes[g.id];
-        var box = {
-          l: rad(g.west - refLng) * k * p, r: rad(g.east - refLng) * k * p,
-          t: rad(g.north - refLat) * p, b: rad(g.south - refLat) * p
-        };
-        var cx = (box.l + box.r) / 2;
-        var card = below[g.id]
-          ? { l: cx - size[0] / 2, r: cx + size[0] / 2, t: box.b - CARD_GAP, b: box.b - CARD_GAP - size[1] }
-          : { l: cx - size[0] / 2, r: cx + size[0] / 2, t: box.t + CARD_GAP + size[1], b: box.t + CARD_GAP };
-        return { box: box, card: card };
-      });
-    }
-    function extent(placed) {
+    function extent(p) {
       var e = { l: Infinity, r: -Infinity, t: -Infinity, b: Infinity };
-      placed.forEach(function (item) {
-        [item.box, item.card].forEach(function (rect) {
+      items.forEach(function (item) {
+        var g = item.g, cx = item.ux * p, cy = item.uy * p;
+        [
+          { l: cx - item.geo.w / 2, r: cx + item.geo.w / 2, t: cy + item.geo.h / 2, b: cy - item.geo.h / 2 },
+          { l: rad(g.west - refLng) * k * p, r: rad(g.east - refLng) * k * p,
+            t: rad(g.north - refLat) * p, b: rad(g.south - refLat) * p }
+        ].forEach(function (rect) {
           e.l = Math.min(e.l, rect.l); e.r = Math.max(e.r, rect.r);
           e.t = Math.max(e.t, rect.t); e.b = Math.min(e.b, rect.b);
         });
       });
       return e;
     }
+    function fits(p) {
+      var e = extent(p);
+      return e.r - e.l <= availW && e.t - e.b <= availH;
+    }
 
     var scale = L.H / (2 * tanHalfFov());           // altitude = scale / p
     var low = scale / MAX_ALTITUDE, high = scale / MIN_ALTITUDE;
-    for (var i = 0; i < 30; i++) {
-      var mid = (low + high) / 2, e = extent(place(mid));
-      if (e.r - e.l <= availW && e.t - e.b <= availH) low = mid; else high = mid;
-    }
-    var placed = place(low), fits = extent(placed), good = true;
-    if (fits.r - fits.l > availW + 1 || fits.t - fits.b > availH + 1) good = false;
-    placed.forEach(function (a, i) {
-      if (a.box.r - a.box.l < MIN_REGION_WIDTH) good = false;
-      placed.forEach(function (b, j) {
-        if (i === j) return;
-        if (overlaps(a.card, b.box, 6) || (i < j && overlaps(a.card, b.card, 10))) good = false;
+
+    // Smallest scale at which no two clusters touch: they must be clear of
+    // each other either side by side or one above the other.
+    var apart = low;
+    items.forEach(function (a, i) {
+      items.forEach(function (b, j) {
+        if (i >= j) return;
+        var dx = Math.abs(a.ux - b.ux), dy = Math.abs(a.uy - b.uy);
+        var sideBySide = dx > 1e-9 ? ((a.geo.w + b.geo.w) / 2 + CLUSTER_MARGIN) / dx : Infinity;
+        var stacked = dy > 1e-9 ? ((a.geo.h + b.geo.h) / 2 + CLUSTER_MARGIN) / dy : Infinity;
+        apart = Math.max(apart, Math.min(sideBySide, stacked));
       });
     });
+
+    // Largest scale at which everything is still inside the window.
+    var largest = low, roomy = fits(low);
+    if (roomy) {
+      var lo = low, hi = high;
+      for (var n = 0; n < 30; n++) {
+        var mid = (lo + hi) / 2;
+        if (fits(mid)) lo = mid; else hi = mid;
+      }
+      largest = lo;
+    }
+    var good = roomy && apart <= largest;
+
+    var p = largest;
+    if (items.length > 1) {
+      // A little more room than the minimum, so the map shows between them.
+      if (good) p = Math.min(largest, 1.5 * apart);
+    } else if (style !== "hubonly" && items[0].geo.slots.length) {
+      // One region: keep its box near the size of its cluster.
+      var g0 = items[0].g;
+      p = Math.max(low, Math.min(largest, 1.8 * items[0].geo.h / rad(g0.north - g0.south)));
+    }
+    var e = extent(p);
     return {
-      good: good || style.hidden, below: below, scale: low,
-      lat: Math.max(-80, Math.min(80, refLat + deg((fits.t + fits.b) / 2 / low))),
-      lng: refLng + deg((fits.l + fits.r) / 2 / (k * low)),
-      altitude: scale / low
+      good: good, style: style,
+      lat: Math.max(-80, Math.min(80, refLat + deg((e.t + e.b) / 2 / p))),
+      lng: refLng + deg((e.l + e.r) / 2 / (k * p)),
+      altitude: scale / p
     };
   }
 
-  // Ease the camera so the given regions, with their cards, fill the free
-  // part of the window.
+  // Ease the camera so the given regions, with their clusters, fill the
+  // free part of the window, in the most informative style that fits.
   function frame(ids, ms) {
     if (!globe) return;
     var regions = P.regions.filter(function (r) { return ids.indexOf(r.id) >= 0; });
@@ -591,25 +745,14 @@
     S.lastFrame = ids.slice();
     S.userMoved = false;
 
-    // Take the first card style that fits without shrinking the regions to
-    // less than half the size they would have with no cards at all.
-    var L = layout(), plan = null, last = CARD_STYLES.length - 1;
-    var bare = solve(regions, L, CARD_STYLES[last], "none");
+    var L = layout(), plan = null, last = CLUSTER_STYLES.length - 1;
     for (var i = 0; i <= last && !plan; i++) {
-      var style = CARD_STYLES[i], best = null;
-      style.below.forEach(function (placement) {
-        var option = solve(regions, L, style, placement);
-        if (!option.good || option.scale < 0.5 * bare.scale) return;
-        if (!best || option.scale > 1.08 * best.scale) best = option;
-      });
-      if (best) { plan = best; useCardStyle(style); }
+      var option = fitClusters(regions, L, CLUSTER_STYLES[i]);
+      if (option.good || i === last) plan = option;
     }
-    P.regions.forEach(function (g) {
-      var isBelow = !!plan.below[g.id];
-      cards[g.id].button.classList.toggle("below", isBelow);
-      cards[g.id].data.lat = isBelow ? g.south : g.north;
-    });
-    showCards();
+    S.style = plan.style;
+    renderClusters();
+    showClusters();
 
     var duration = reduceMotion ? 0 : ms;
     var shift = offsetFor(L);
@@ -618,111 +761,97 @@
   }
 
   // --- Data on the globe ------------------------------------------------------
-  function tipFor(g, v, result, year, value) {
-    return '<div class="tip"><b>' + esc(g.label) + " \u00B7 " + esc(variable(v).short) + "</b><br>" +
-      year + " yearly average: " + esc(fmt(value)) + " " + esc(result.unit) + "<br>" +
-      '<span class="glyph ' + result.direction + '">' + GLYPH[result.direction] + "</span> " +
-      esc(P.text.directions[result.direction]) + "</div>";
-  }
-
-  // One row of yearly stripes per ticked variable inside each region box.
+  // The study box of each revealed region, outlined on the globe.
   function buildPolygons() {
-    var polygons = [];
-    var years = P.last_year - P.first_year + 1;
-    P.regions.forEach(function (g) {
-      if (S.shown.indexOf(g.id) < 0) return;
-      polygons.push({
-        kind: "plate", region: g.id, selected: S.panel && S.region === g.id,
-        tip: '<div class="tip"><b>' + esc(g.label) + "</b><br>" + esc(g.description) + "</div>",
-        geometry: { type: "Polygon", coordinates: [boxRing(g.west, g.south, g.east, g.north)] }
+    return P.regions
+      .filter(function (g) { return S.shown.indexOf(g.id) >= 0; })
+      .map(function (g) {
+        return {
+          region: g.id, selected: S.panel && S.region === g.id,
+          tip: '<div class="tip"><b>' + esc(g.label) + "</b><br>" + esc(g.description) + "</div>",
+          geometry: { type: "Polygon", coordinates: [boxRing(g.west, g.south, g.east, g.north)] }
+        };
       });
-      var ids = tickedIds(g.id);
-      if (!ids.length) return;
-      var inset = 0.3, gap = 0.22;
-      var rowHeight = (g.north - g.south - 2 * inset - gap * (ids.length - 1)) / ids.length;
-      var columnWidth = (g.east - g.west - 2 * inset) / years;
-      ids.forEach(function (v, row) {
-        var result = P.results[g.id][v], annual = result.annual;
-        var top = g.north - inset - row * (rowHeight + gap), bottom = top - rowHeight;
-        if (!annual.years.length) return;      // no trend estimated: plate only
-        var low = minOf(annual.mean), high = maxOf(annual.mean);
-        annual.years.forEach(function (year, index) {
-          var west = g.west + inset + (year - P.first_year) * columnWidth;
-          var t = high > low ? (annual.mean[index] - low) / (high - low) : 0.5;
-          polygons.push({
-            kind: "cell", region: g.id, color: shade(result.direction, t),
-            tip: tipFor(g, v, result, year, annual.mean[index]),
-            geometry: { type: "Polygon", coordinates: [boxRing(west, bottom, west + columnWidth, top)] }
-          });
-        });
-      });
-    });
-    return polygons;
   }
 
-  function cardHtml(g) {
-    var rows = tickedIds(g.id).map(function (v, index) {
-      var result = P.results[g.id][v];
-      var value = result.trend_text
-        ? esc(result.trend_text) + ' <span class="unit"><span class="long">' + esc(result.trend_unit) +
-          '</span><span class="short">' + esc(result.trend_unit_short) + "</span></span>"
-        : "";
-      return '<span class="row ' + result.direction + '" style="--i:' + index + '">' +
-        '<span class="glyph" aria-hidden="true">' + GLYPH[result.direction] + "</span>" +
-        '<span class="name">' + esc(variable(v).short) + "</span>" +
-        '<span class="val">' + value + "</span>" +
-        '<span class="badge" title="' + esc(result.badge_note) + '">' + esc(result.badge) + "</span>" +
-        "</span>";
+  // Light up part of a cluster. `v` is a variable id (that block, its wire
+  // and the hub), "*" (the hub, every wire and every block) or null.
+  function setHot(el, v) {
+    Array.prototype.forEach.call(el.querySelectorAll(".block, .wire"), function (node) {
+      node.classList.toggle("hot", v === "*" || (v !== null && node.getAttribute("data-v") === v));
     });
-    return '<span class="card-title">' + esc(g.label) + "</span>" + rows.join("");
+    el.querySelector(".hub").classList.toggle("hot", v !== null);
   }
 
-  function makeCard(g) {
+  function makeCluster(g) {
     var pin = document.createElement("div");
     pin.className = "pin";
-    var button = document.createElement("button");
-    button.type = "button";
-    button.className = "card";
-    button.setAttribute("aria-label", g.label + ": open charts and details");
-    button.addEventListener("click", function () { openPanel(g.id); });
-    pin.appendChild(button);
-    cards[g.id] = { button: button, data: { id: g.id, lat: g.north, lng: (g.west + g.east) / 2, el: pin } };
+    var el = document.createElement("div");
+    el.className = "cluster";
+    pin.appendChild(el);
+
+    function part(event) {
+      return event.target && event.target.closest ? event.target.closest(".block, .hub") : null;
+    }
+    function light(event) {
+      var node = part(event);
+      if (node) setHot(el, node.classList.contains("hub") ? "*" : node.getAttribute("data-v"));
+    }
+    function dim(event) {
+      var next = event.relatedTarget;
+      if (next && next.closest && el.contains(next) && next.closest(".block, .hub")) return;
+      setHot(el, null);
+    }
+    el.addEventListener("pointerover", light);
+    el.addEventListener("pointerout", dim);
+    el.addEventListener("focusin", light);
+    el.addEventListener("focusout", dim);
+    el.addEventListener("click", function (event) {
+      var node = part(event);
+      if (!node) return;
+      openPanel(g.id, node.classList.contains("hub") ? null : node.getAttribute("data-v"));
+    });
+
+    clusters[g.id] = {
+      el: el,
+      data: { id: g.id, lat: (g.south + g.north) / 2, lng: (g.west + g.east) / 2, el: pin }
+    };
   }
 
   function renderGlobeData() {
     if (!globe) return;
-    P.regions.forEach(function (g) {
-      cards[g.id].button.innerHTML = cardHtml(g);
-      cards[g.id].button.classList.toggle("sel", S.panel && S.region === g.id);
-    });
+    renderClusters();
     globe.polygonsData(buildPolygons());
-    showCards();
+    showClusters();
   }
 
-  // Pin the cards of the revealed regions (again, if one moved to the
-  // other side of its region).
-  function showCards() {
-    // With the panel open only the region it describes keeps its card, so a
-    // neighbour's card is not left half off the edge of the window.
+  // Pin the clusters of the revealed regions.
+  function showClusters() {
+    // With the panel open only the region it describes keeps its cluster,
+    // so a neighbour's is not left half off the edge of the window.
     globe.htmlElementsData(P.regions
       .filter(function (g) { return S.shown.indexOf(g.id) >= 0 && (!S.panel || g.id === S.region); })
-      .map(function (g) { return cards[g.id].data; }));
+      .map(function (g) { return clusters[g.id].data; }));
   }
 
-  // Color key: one ramp per trend direction, made with the function that
-  // colors the stripes, so the key always matches the globe.
-  function rampCss(direction) {
-    var stops = [0, 0.25, 0.5, 0.75, 1].map(function (t) { return shade(direction, t); });
+  // Color key: one ramp per variable, made with the function that colors
+  // the stripes, so the key always matches the blocks. The last ramp shows
+  // how an inconclusive result is faded.
+  function rampCss(v, direction) {
+    var stops = [0, 0.25, 0.5, 0.75, 1].map(function (t) { return shade(v, direction, t); });
     return "linear-gradient(90deg," + stops.join(",") + ")";
   }
   function renderLegend() {
-    var d = P.text.directions;
+    var items = P.variables.map(function (v) {
+      return '<span class="kitem"><i class="kramp" aria-hidden="true" style="background:' +
+        rampCss(v.id, "increase") + '"></i>' + esc(v.short) + "</span>";
+    });
+    if (P.variables.length) {
+      items.push('<span class="kitem faded"><i class="kramp" aria-hidden="true" style="background:' +
+        rampCss(P.variables[0].id, "inconclusive") + '"></i>' + esc(P.text.faded_key) + "</span>");
+    }
     legend.innerHTML = '<div class="ktitle">' + esc(P.text.color_key) + '</div><div class="kitems">' +
-      ["increase", "decrease", "inconclusive"].map(function (direction) {
-        return '<span class="kitem ' + direction + '">' +
-          '<i class="kramp" aria-hidden="true" style="background:' + rampCss(direction) + '"></i>' +
-          GLYPH[direction] + " " + esc(d[direction]) + "</span>";
-      }).join("") + "</div><div>" + esc(P.text.stripes) + "</div>";
+      items.join("") + "</div><div>" + esc(P.text.stripes) + "</div>";
   }
 
   function renderTicks() {
@@ -744,6 +873,7 @@
       var text = document.createElement("span");
       text.textContent = v.short;
       label.title = v.label;
+      label.style.setProperty("--accent", accent(v.id));   // the tick takes the variable's color
       label.appendChild(input);
       label.appendChild(text);
       group.appendChild(label);
@@ -857,7 +987,8 @@
   // One variable: what it is, the result in plain words, the chart, what
   // the result means, then the source details folded away.
   function variableSection(v, result) {
-    var s = '<section class="var ' + result.direction + '"><div class="vhead"><h3>' + esc(result.label) + "</h3>" +
+    var s = '<section class="var ' + result.direction + '" data-var="' + esc(v) + '" style="--c:' + accent(v) +
+      '"><div class="vhead"><h3>' + esc(result.label) + "</h3>" +
       '<span class="badge ' + result.direction + '" title="' + esc(result.badge_note) + '">' + esc(result.badge) +
       "</span></div>";
     if (result.definition) s += '<p class="def">' + esc(result.definition) + "</p>";
@@ -933,13 +1064,60 @@
     drawCharts();
   }
 
-  function openPanel(regionId) {
+  // Ease a scrolling element to a position. Any scroll, touch, click or key
+  // press from the visitor ends the glide at once: they are never held.
+  var glide = 0;
+  function glideTo(el, top) {
+    var events = ["wheel", "touchstart", "pointerdown", "keydown"];
+    function stop() {
+      cancelAnimationFrame(glide);
+      events.forEach(function (name) { el.removeEventListener(name, stop); });
+    }
+    cancelAnimationFrame(glide);
+    var from = el.scrollTop;
+    top = Math.max(0, Math.min(top, el.scrollHeight - el.clientHeight));
+    if (reduceMotion || Math.abs(top - from) < 2) { el.scrollTop = top; return; }
+    var ms = Math.min(1100, 450 + Math.abs(top - from) * 0.3), started = performance.now();
+    events.forEach(function (name) { el.addEventListener(name, stop, { passive: true }); });
+    (function step(now) {
+      var t = Math.min(1, (now - started) / ms);
+      var e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      el.scrollTop = from + (top - from) * e;
+      if (t < 1) glide = requestAnimationFrame(step); else stop();
+    })(started);
+  }
+
+  // Glide the panel to one variable's card and light it for a moment.
+  var targetTimer = 0;
+  function scrollToVariable(variableId) {
+    var pbody = document.getElementById("pbody");
+    requestAnimationFrame(function () {
+      var card = null;
+      Array.prototype.forEach.call(pbody.querySelectorAll(".var"), function (node) {
+        if (node.getAttribute("data-var") === variableId) card = node;
+      });
+      if (!card) return;
+      var top = card.getBoundingClientRect().top - pbody.getBoundingClientRect().top + pbody.scrollTop - 10;
+      glideTo(pbody, top);
+      card.classList.add("target");
+      clearTimeout(targetTimer);
+      targetTimer = setTimeout(function () {
+        Array.prototype.forEach.call(pbody.querySelectorAll(".var.target"), function (node) {
+          node.classList.remove("target");
+        });
+      }, 2200);
+    });
+  }
+
+  // Open the charts for a region; with a variable, go on to its card.
+  function openPanel(regionId, variableId) {
     if (S.phase !== "explore" || performance.now() - S.skippedAt < 400) return;
     var changed = S.region !== regionId || !S.panel;
     S.region = regionId;
     S.panel = true;
     renderPanel();
     if (changed) document.getElementById("pbody").scrollTop = 0;
+    if (variableId) scrollToVariable(variableId);
     renderGlobeData();
     frame([regionId], 1300);
   }
@@ -1041,7 +1219,7 @@
       var held = performance.now() - press.at;
       press = null;
       if (moved > 6 || held > 700 || event.button !== 0) return;          // a drag, not a tap
-      if (event.target.closest && event.target.closest(".card")) return;  // cards handle their own clicks
+      if (event.target.closest && event.target.closest(".cluster")) return;  // hubs and blocks handle their own clicks
       var bounds = container.getBoundingClientRect();
       var point = globe.toGlobeCoords(event.clientX - bounds.left, event.clientY - bounds.top);
       if (!point) return;
@@ -1063,13 +1241,11 @@
       .width(window.innerWidth)
       .height(window.innerHeight)
       .polygonsData([])
-      .polygonCapColor(function (d) { return d.kind === "cell" ? d.color : "rgba(4,8,16,0.8)"; })
-      // Opaque sides: see-through ones would still hide the plate behind them.
-      .polygonSideColor(function (d) { return d.kind === "cell" ? "#04080F" : "rgba(0,0,0,0)"; })
-      .polygonStrokeColor(function (d) {
-        return d.kind === "cell" ? false : (d.selected ? "#FFFFFF" : "rgba(255,255,255,0.7)");
-      })
-      .polygonAltitude(function (d) { return d.kind === "cell" ? 0.012 : 0.005; })
+      // The study boxes: a light green wash with a clear outline.
+      .polygonCapColor(function () { return "rgba(8,46,30,0.30)"; })
+      .polygonSideColor(function () { return "rgba(0,0,0,0)"; })
+      .polygonStrokeColor(function (d) { return d.selected ? "#FFE81F" : "rgba(255,255,255,0.75)"; })
+      .polygonAltitude(0.005)
       .polygonsTransitionDuration(0)
       .polygonLabel(function (d) { return d.tip; })
       .onPolygonHover(function (d) { container.style.cursor = d ? "pointer" : "grab"; })
@@ -1119,7 +1295,16 @@
     drawStars();
     renderTicks();
     renderLegend();
-    P.regions.forEach(makeCard);
+    P.regions.forEach(makeCluster);
+    // The hub lettering arrives with its font: measure again once it has.
+    if (document.fonts && document.fonts.addEventListener) {
+      document.fonts.addEventListener("loadingdone", function () {
+        geometryCache = {};
+        if (!globe || S.phase === "idle") return;
+        if (S.phase === "explore" && S.lastFrame && !S.userMoved) frame(S.lastFrame, 0);
+        else renderClusters();
+      });
+    }
 
     document.getElementById("start").addEventListener("click", startTour);
     document.getElementById("close").addEventListener("click", closePanel);

@@ -23,15 +23,21 @@ For each region and variable, the app answers:
 1. The globe spins slowly under the app title, with a single **Start** button.
 2. Start moves the camera to the Southwest (Region A), then the Midwest
    (Region B), then settles on both. A click, tap or Esc skips ahead.
-3. Each region is drawn as rows of yearly stripes, one row per ticked variable
-   and one stripe per year. Brightness follows the yearly average. Color
-   follows the trend: amber for an increase, violet for a decrease, and gray
-   when the 95% confidence interval includes zero. A gray row is labelled
-   "Inconclusive" and is never colored as an increase or a decrease. A color
-   key in the corner shows the three scales, drawn with the stripes' own colors.
-4. A label on each region gives every ticked variable's trend, its unit and a
-   "Significant" or "Inconclusive" badge.
-5. Clicking a region, or switching on **Charts & details**, opens a panel that
+3. Each region is a hub with its name, pinned to the middle of its study box,
+   with one block per ticked variable around it and a red wire from the hub to
+   each block. A block is a row of yearly stripes, one stripe per year, over a
+   line with the variable's name, its trend and a "Significant" or
+   "Inconclusive" badge. Brightness follows the yearly average. Color names
+   the variable: orange for precipitation, teal for evaporation, brown for
+   soil moisture and violet for runoff. When the 95% confidence interval
+   includes zero the stripes are faded, the badge reads "Inconclusive" and no
+   direction is shown. A color key in the corner is drawn with the stripes'
+   own colors. In a small window the blocks drop the trend value, then the
+   badge; on a phone with both regions in view only the hubs are shown.
+4. Pointing at a hub lights its wires and blocks; pointing at a block lights
+   that block, its wire and the hub. Clicking a block opens the charts panel
+   and glides to that variable's card.
+5. Clicking a hub or a region, or switching on **Charts & details**, opens a panel that
    takes about 40% of a laptop window. It starts with one plain-language line
    per variable ("Downward trend", "No clear trend"). Below that, each variable
    has a card: what the variable is, the result, a chart (monthly values,
@@ -114,7 +120,8 @@ zero. That says nothing about how large or important the change is.
 The interface never:
 
 - shows an invented confidence percentage,
-- colours a trend as an increase or a decrease when its interval includes zero,
+- shows a trend as an increase or a decrease (arrow, badge, headline or full
+  color) when its interval includes zero,
 - says "no change" because a result is not statistically significant,
 - presents a historical trend as a prediction or as evidence of a cause,
 - draws a confidence band that the analysis did not supply,
