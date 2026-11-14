@@ -14,7 +14,7 @@ import streamlit as st
 
 from services import catalog, investigate, section_a
 from services.contracts import Investigation
-from ui import compare, evidence, explore, results
+from ui import compare, evidence, explore, region_map, results
 
 st.set_page_config(
     page_title="Earth Trend Detective",
@@ -76,10 +76,12 @@ def main() -> None:
         explore.render_landing()
     elif screen == "select":
         explore.render_selection()
+        region_map.render_region_map()
     elif screen == "results":
         inv = _load(state["region_id"])
         if inv is not None:
             results.render(inv)
+            region_map.render_region_map([state["region_id"]])
     elif screen == "evidence":
         inv = _load(state["region_id"])
         if inv is not None:
@@ -91,6 +93,7 @@ def main() -> None:
         loaded = [_load(state["region_id"]), _load(other)]
         if all(inv is not None for inv in loaded):
             compare.render(loaded)  # type: ignore[arg-type]
+            region_map.render_region_map([state["region_id"], other])
     else:
         explore.go_to("landing")
 
