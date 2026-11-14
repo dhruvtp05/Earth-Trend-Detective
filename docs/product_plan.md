@@ -1,79 +1,101 @@
-# Earth Trend Detective — product plan
+# Earth Trend Detective: product plan
 
-NASA Space Apps · "Be An Earth System Trend Detective!"
+NASA Space Apps, "Be An Earth System Trend Detective!"
 UIC Computer Science and Data Science team.
 
-## Scope (locked for the hackathon)
+## Scope
 
-- **Concept A only**: "My Place, Over Time" — Chicago temperature.
-- Concepts B ("Compare Two Places") and C ("Does the Time Window Matter?")
-  are **stretch** and not scaffolded.
+The app investigates one variable in one region over a chosen period, and can
+compare the same variable across two regions.
+
+- **Regions:** Midwest (Region B) and Southwest (Region A), as area averages.
+- **Variables delivered:** precipitation, soil moisture (top 10 cm), storm
+  surface runoff.
+- **Starting example:** precipitation in the Midwest, which includes Chicago.
+
+Changed from the original brief: Section A delivered regional precipitation and
+soil moisture rather than Chicago temperature, so "Compare Two Places" moved
+from stretch to core. "Does the Time Window Matter?" is covered by the period
+slider; a dedicated side-by-side view remains a stretch.
 
 ## Ownership
 
 | Section | Owns | Delivers |
 |---|---|---|
-| A | Data retrieval, cleaning, units, metadata | `services.section_a.get_series(...)` |
-| B | Aggregation, trend, uncertainty | `services.section_b.estimate_trend(...)` |
-| C | UX, navigation, screens, accessibility, states, submission | everything in `ui/`, `app.py`, `docs/` |
+| A | Data retrieval, cleaning, units, metadata | CSV files in `data/` |
+| B | Aggregation, trend, uncertainty, validity rules | `services/section_b.estimate_trend(...)` |
+| C | Interface, states, accessibility, submission | `app.py`, `ui/`, `docs/` |
 
-Section C must not invent scientific results or silently replace B's method.
+Section C does not invent scientific results or replace Section B's method.
 
-## Data contract (agreed in `services/contracts.py`)
+## Data delivered by Section A
+
+Giovanni "Time Series, Area-Averaged" exports, monthly, no missing months.
+
+| File | Region box | Dataset | Period |
+|---|---|---|---|
+| `southwest_precip_regionA.csv` | 31–40°N, 115–106.25°W | MERRA-2 M2TMNXFLX 5.12.4, PRECTOTCORR, mm/day | 2005–2025 |
+| `midwest_precip_regionB.csv` | 40–49°N, 92.5–76.25°W | same | 2005–2025 |
+| `southwest_soilmoisture_regionA.csv` | 31.125–39.875°N, 114.875–106.125°W | GLDAS_NOAH025_M 2.1, SoilMoi0_10cm_inst | 2000–2025 |
+| `midwest_soilmoisture_regionB.csv` | 40.125–48.875°N, 92.875–76.125°W | same | 2000–2025 |
+| `southwest_runoff_regionA.csv` | as soil moisture | GLDAS_NOAH025_M 2.1, Qs_acc | 2000–2025 |
+| `midwest_runoff_regionB.csv` | as soil moisture | same | 2000–2025 |
+
+File naming: `{region}_{variable}_region{letter}.csv`. Files that follow it are
+picked up automatically; friendly labels live in `services/catalog.py`.
+
+## Contract (`services/contracts.py`)
 
 - `SeriesPoint(date, value)`
 - `DatasetMetadata(dataset_name, dataset_version, source_url, retrieved_at,
   coordinates_or_bounds, spatial_resolution, data_kind, missing_value_rules,
-  unit, variable_label, variable_definition)`
-- `TrendResult(status, period_start, period_end, aggregation,
-  trend_per_decade, trend_unit, confidence_level, ci_lower, ci_upper,
-  valid_count, excluded_count, method, assumptions, warnings,
+  unit, variable_label, variable_definition, unit_note)`
+- `TrendResult(status, period_start, period_end, aggregation, trend_per_decade,
+  trend_unit, confidence_level, ci_lower, ci_upper, valid_count, excluded_count,
+  method, assumptions, warnings, aggregated_dates?, aggregated_values?,
   fitted_dates?, fitted_values?, band_lower?, band_upper?)`
-- `status` ∈ {`ok`, `insufficient_data`, `invalid_selection`, `analysis_failed`}
-- `data_kind` ∈ {`reanalysis`, `satellite`, `station`, `model`, `synthetic`}
+- `status`: `ok`, `insufficient_data`, `invalid_selection`, `analysis_failed`
 
-## Dataset (initial demonstration)
+Section B's function:
 
-- MERRA-2 M2T1NXSLV, variable `T2M` (2 m air temperature), via Giovanni.
-- Nearest grid cell to Chicago (41.88°N, 87.63°W).
-- Aggregation: annual mean (Section B to confirm).
-- Period: 1980–2024, subject to Section A's confirmation of coverage.
-- **Label as reanalysis grid cell, never as a Chicago weather station.**
+```python
+estimate_trend(points, period_start, period_end, confidence_level=0.95, unit="") -> TrendResult
+```
+
+`points` are monthly. `valid_count` and `excluded_count` are counted in months.
+
+## Trend method: placeholder until Section B delivers
+
+`services/section_b.py` currently holds a stand-in so the interface can be built
+on real data: annual means of complete years, ordinary least squares, 95%
+interval from the t distribution, and no trend below 10 complete years. Every
+screen and export marks these numbers as provisional. When Section B's method
+lands, replace the function body and set `IS_PLACEHOLDER = False`.
 
 ## Screens
 
-1. Landing — "Explore how a place has changed." Primary CTA: Explore the Chicago example.
-2. Selection — location (Chicago), variable (temperature), period slider.
-3. Results — title → sentence → trend + CI → chart → explanation → coverage → actions.
-4. Evidence — dataset, variable, coverage, missing data, method.
-
-## States
-
-- Loading: "Loading the selected NASA data." → "Calculating the trend."
-- Insufficient data: show status message, suppress trend result.
-- Invalid selection: explain coverage, offer a valid selection.
-- Data retrieval failed: "We couldn’t load the data. Retry, or explore the saved example." Selections preserved.
-- Synthetic demo badge: "Synthetic demo data — not NASA findings" on every synthetic surface and in exports.
-
-## Scientific-communication rules
-
-Enforced in `services/copy.py`:
-- Result template (§7).
-- Uncertainty template (§7).
-- CI-around-zero fallback (§7).
-- Insufficient-data fallback (§7).
-- `coverage_sentence` prevents labeling reanalysis as station data.
-
-## Submission
-
-- Public GitHub repo (shared with team).
-- Streamlit Community Cloud URL as the primary submission link.
-- 30-second video demo (preferred over 7-slide deck).
-- README includes run instructions, data source, methods, and AI-use disclosure.
+1. Landing: "Explore the Midwest example" or "Choose a region".
+2. Selection: region, variable, period slider limited to available years, reset.
+3. Result: title, result sentence, trend and interval, chart, chart description
+   and tables, coverage and limitations, next actions, downloads.
+4. Evidence: dataset, variable, coverage, missing data, method, how to read
+   uncertainty, link to reproduce in Giovanni.
+5. Compare: same variable, period and method for both regions.
 
 ## Open questions
 
-- [ ] Final dataset variable + aggregation (A + B).
-- [ ] Minimum valid observation count for Section B's method.
-- [ ] Whether Section B supplies a confidence band for the chart or only a slope CI.
-- [ ] Exact Giovanni query URL and retrieval date (A).
+Section A:
+- [ ] Retrieval date for each file (shown as "not recorded yet").
+- [ ] Confirm the soil moisture and runoff units. The files state none; the app
+      shows kg/m² and kg/m² per 3 hours from the GLDAS product documentation,
+      each with a note.
+
+Section B:
+- [ ] Trend method and how seasonality and autocorrelation are handled.
+- [ ] Minimum number of years for a valid trend.
+- [ ] Whether a chart confidence band will be supplied (none is drawn otherwise).
+
+Section C:
+- [ ] Deploy to Streamlit Community Cloud and add the link to the README.
+- [ ] Usability test with three people (Template E).
+- [ ] 30-second demo video once Section B's numbers are in.
