@@ -8,6 +8,9 @@ backgroundColor = "#03050A"
 secondaryBackgroundColor = "#0E1524"
 textColor = "#E8ECF4"
 font = "sans serif"
+# No gap around the globe. These must be quoted strings.
+paddingTop = "0"
+paddingBottom = "0"
 
 [client]
 toolbarMode = "minimal"

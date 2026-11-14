@@ -142,7 +142,18 @@ def conclusion_sentence(trend: TrendResult) -> str:
 # as an increase or a decrease.
 # ---------------------------------------------------------------------------
 
+APP_TITLE = "Earth Trend Detective"
+
 PROVISIONAL_TAG = "Provisional"
+
+COLOR_KEY_TITLE = "Color key"
+
+CHART_GUIDE = (
+    "Monthly values show the swings from season to season. Annual means "
+    "average each calendar year. The fitted trend is the straight line that "
+    "best fits the annual means. The shaded band shows how uncertain that "
+    "line is: a wider band means the data pin it down less well."
+)
 
 SHORT_RECORD_NOTE = (
     "The record is short for a climate trend, so the estimate is sensitive "
@@ -161,6 +172,15 @@ DIRECTION_LABELS = {
     "increase": "Increase",
     "decrease": "Decrease",
     "inconclusive": "Inconclusive",
+    "none": "No trend estimated",
+}
+
+# Plain-language headline for each direction. "No clear trend" means the
+# data cannot tell a rise from a fall; it must never become "no change".
+HEADLINE_LABELS = {
+    "increase": "Upward trend",
+    "decrease": "Downward trend",
+    "inconclusive": "No clear trend",
     "none": "No trend estimated",
 }
 
@@ -187,6 +207,11 @@ def trend_direction(trend: TrendResult) -> str:
     if interval_includes_zero(trend):
         return "inconclusive"
     return "increase" if trend.trend_per_decade > 0 else "decrease"
+
+
+def trend_headline(trend: TrendResult) -> str:
+    """Two or three plain words for the result, following `trend_direction`."""
+    return HEADLINE_LABELS[trend_direction(trend)]
 
 
 def significance_badge(trend: TrendResult) -> str:
@@ -243,7 +268,8 @@ def stripes_legend(first_year: int, last_year: int) -> str:
     """How yearly values are drawn inside each region on the globe."""
     return (
         f"Each stripe is one year, {first_year} to {last_year} from west to "
-        "east. Brighter means a higher yearly average for that region."
+        "east. Within a row, darker means a lower yearly average and "
+        "brighter means a higher one."
     )
 
 

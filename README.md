@@ -20,19 +20,25 @@ For each region and variable, the app answers:
 
 ## How it works
 
-1. The globe spins slowly with a single **Start** button.
+1. The globe spins slowly under the app title, with a single **Start** button.
 2. Start moves the camera to the Southwest (Region A), then the Midwest
    (Region B), then settles on both. A click, tap or Esc skips ahead.
 3. Each region is drawn as rows of yearly stripes, one row per ticked variable
-   and one stripe per year. Brightness follows the yearly average. Colour
+   and one stripe per year. Brightness follows the yearly average. Color
    follows the trend: amber for an increase, violet for a decrease, and gray
    when the 95% confidence interval includes zero. A gray row is labelled
-   "Inconclusive" and is never coloured as an increase or a decrease.
+   "Inconclusive" and is never colored as an increase or a decrease. A color
+   key in the corner shows the three scales, drawn with the stripes' own colors.
 4. A label on each region gives every ticked variable's trend, its unit and a
    "Significant" or "Inconclusive" badge.
-5. Clicking a region, or switching on **Charts & details**, opens a panel with
-   monthly values, annual means, the fitted trend and its confidence band, the
-   confidence interval in words, the dataset details and the yearly values.
+5. Clicking a region, or switching on **Charts & details**, opens a panel that
+   takes about 40% of a laptop window. It starts with one plain-language line
+   per variable ("Downward trend", "No clear trend"). Below that, each variable
+   has a card: what the variable is, the result, a chart (monthly values,
+   annual means, the fitted trend and its confidence band) and a "What this
+   means" box with the conclusion and the confidence interval in words. The
+   dataset details, the Giovanni link and the yearly values are folded away
+   under each card.
 
 The only controls are Start, one tick box per variable, the Charts & details
 switch (with a tab per region inside the panel) and close. On a phone the panel
@@ -123,6 +129,9 @@ ui/
   globe_component/      the globe page (index.html), globe library, NASA Blue
                         Marble textures, credits
   theme.py              hides Streamlit's page chrome so the globe fills the window
+.streamlit/config.toml  dark theme, colors and zero page padding
+.cursor/skills/         pointer to the Streamlit guidance that ships with the
+                        installed Streamlit, for AI coding assistants
 services/
   contracts.py          shared data structures (Sections A, B and C)
   catalog.py            regions, variables and data file discovery

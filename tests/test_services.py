@@ -265,12 +265,18 @@ def test_globe_direction_is_only_given_when_the_interval_excludes_zero():
     )
     assert "does not say how large or important" in copy.significance_note(rising)
 
+    assert copy.trend_headline(rising) == "Upward trend"
+    assert copy.trend_headline(falling) == "Downward trend"
+    assert copy.trend_headline(unclear_up) == copy.trend_headline(unclear_down) == "No clear trend"
+    assert "no change" not in " ".join(copy.HEADLINE_LABELS.values()).lower()
+
 
 @pytest.mark.parametrize("status", ["insufficient_data", "invalid_selection", "analysis_failed"])
 def test_globe_labels_show_no_numbers_without_a_trend(status):
     trend = _trend(status=status)
     assert copy.trend_direction(trend) == "none"
     assert copy.significance_badge(trend) == "No trend estimated"
+    assert copy.trend_headline(trend) == "No trend estimated"
     assert copy.significance_note(trend) == ""
     assert copy.trend_value_text(trend) == "" and copy.interval_text(trend) == ""
 

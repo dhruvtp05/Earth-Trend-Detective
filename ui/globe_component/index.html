@@ -8,7 +8,7 @@
     --inc: #FFB000; --dec: #B79CFF; --neu: #A7AEBA;
     --ink: #EAF0FA; --dim: #9AA6B8; --accent: #7FB2FF;
     --glass: rgba(9, 15, 27, 0.80); --line: rgba(255, 255, 255, 0.16);
-    --panel-w: clamp(360px, 34vw, 470px);
+    --panel-w: clamp(380px, 40vw, 820px);   /* charts panel : globe = 40 : 60 */
   }
   * { box-sizing: border-box; }
   html, body {
@@ -27,7 +27,15 @@
   #stars, #globe { position: absolute; inset: 0; }
   #globe { cursor: grab; touch-action: none; }
 
-  /* ---- Start ------------------------------------------------------------ */
+  /* ---- Title and Start --------------------------------------------------- */
+  #title {
+    position: absolute; left: 0; right: 0; top: max(4.5vh, 16px); z-index: 2;
+    margin: 0; padding: 0 1rem; text-align: center; pointer-events: none;
+    font-size: clamp(1.6rem, 4.2vw, 2.9rem); font-weight: 800; letter-spacing: 0.03em; line-height: 1.1;
+    text-shadow: 0 2px 18px rgba(3, 5, 10, 0.95), 0 0 3px rgba(3, 5, 10, 0.9);
+    opacity: 0; visibility: hidden; transition: opacity 0.6s ease, visibility 0s 0.6s;
+  }
+  body.idle.ready #title { opacity: 1; visibility: visible; transition: opacity 0.6s ease; }
   #start {
     position: absolute; left: 50%; bottom: max(9vh, 36px); transform: translateX(-50%);
     min-height: 52px; padding: 0 2.8rem; border: 0; border-radius: 999px; cursor: pointer;
@@ -79,20 +87,27 @@
   .switch input:checked { background: var(--accent); }
   .switch input:checked::after { transform: translateX(16px); }
 
-  /* ---- Legend ----------------------------------------------------------- */
+  /* ---- Color key for the yearly stripes ---------------------------------- */
   #legend {
     position: absolute; left: 12px; bottom: 12px; z-index: 2; pointer-events: none;
-    max-width: min(600px, calc(100% - 24px));
-    padding: 0.5rem 0.75rem; border-radius: 12px; font-size: 0.8rem; line-height: 1.4; color: #C9D3E3;
+    max-width: min(560px, calc(100% - 24px));
+    padding: 0.6rem 0.8rem 0.65rem; border-radius: 12px; font-size: 0.82rem; line-height: 1.4; color: #C9D3E3;
     background: var(--glass); border: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
     opacity: 0; visibility: hidden; transition: opacity 0.5s ease;
   }
-  body.panel-open:not(.phone) #legend { max-width: min(600px, calc(100% - var(--panel-w) - 24px)); }
-  .key { display: inline-block; margin-right: 0.9rem; font-weight: 700; white-space: nowrap; }
-  .key.increase { color: var(--inc); } .key.decrease { color: var(--dec); } .key.inconclusive { color: var(--neu); }
-  .ramp {
-    display: inline-block; vertical-align: -1px; width: 46px; height: 9px; margin-right: 0.4rem;
-    border-radius: 2px; background: linear-gradient(90deg, #3E444E, #E4E7EC);
+  body.panel-open:not(.phone) #legend { max-width: min(560px, calc(100% - var(--panel-w) - 24px)); }
+  .ktitle {
+    margin-bottom: 0.4rem; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink);
+  }
+  .kitems { display: flex; flex-wrap: wrap; gap: 0.35rem 1.1rem; margin-bottom: 0.45rem; }
+  .kitem { display: inline-flex; align-items: center; gap: 0.45rem; font-weight: 700; white-space: nowrap; }
+  .kitem.increase { color: var(--inc); } .kitem.decrease { color: var(--dec); } .kitem.inconclusive { color: var(--neu); }
+  /* Drawn with the same colors as the stripes, darkest to brightest. */
+  .kramp {
+    display: inline-block; width: 56px; height: 13px; flex: none; border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.28);
   }
 
   /* ---- Region cards pinned to the globe --------------------------------- */
@@ -188,27 +203,60 @@
     flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0.4rem 1rem 1.4rem;
     scrollbar-width: thin; scrollbar-color: #4A5568 transparent;
   }
-  .where { margin: 0.5rem 0 0; font-size: 0.85rem; color: var(--dim); }
-  .var { padding: 1rem 0 1.1rem; border-bottom: 1px solid var(--line); }
+  .rname { margin: 0.8rem 0 0; font-size: 1.4rem; font-weight: 800; line-height: 1.2; }
+  .where { margin: 0.1rem 0 0; font-size: 0.9rem; color: var(--dim); }
+  .sec {
+    margin: 1.1rem 0 0.45rem; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--dim);
+  }
+
+  /* At a glance: one line per ticked variable. */
+  .glance {
+    margin: 0; padding: 0; list-style: none; border-radius: 12px;
+    border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04);
+  }
+  .glance li {
+    display: grid; grid-template-columns: 1.1rem minmax(0, 1fr) auto; column-gap: 0.5rem;
+    align-items: baseline; padding: 0.5rem 0.8rem; font-size: 0.94rem;
+  }
+  .glance li + li { border-top: 1px solid rgba(255, 255, 255, 0.08); }
+  .gname, .ghead { font-weight: 700; }
+  .gval { grid-column: 2 / 4; font-size: 0.82rem; color: #B6C1D3; font-variant-numeric: tabular-nums; }
+  .increase .ghead, .var.increase .headline { color: var(--inc); }
+  .decrease .ghead, .var.decrease .headline { color: var(--dec); }
+  .inconclusive .ghead, .none .ghead, .var.inconclusive .headline, .var.none .headline { color: var(--neu); }
+
+  /* One card per variable, edged with its color from the key. */
+  .var {
+    margin-top: 0.9rem; padding: 0.9rem 1rem 1rem; border-radius: 12px;
+    border: 1px solid var(--line); border-left: 4px solid var(--neu); background: rgba(255, 255, 255, 0.035);
+  }
+  .var.increase { border-left-color: var(--inc); } .var.decrease { border-left-color: var(--dec); }
   .vhead { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-  .vhead h3 { margin: 0; font-size: 1.05rem; }
-  .big { margin: 0.35rem 0 0.5rem; font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-  .big .unit { font-size: 0.9rem; }
-  .big .period { font-size: 0.85rem; font-weight: 400; color: var(--dim); margin-left: 0.4rem; }
-  .big.inconclusive { color: var(--neu); }
-  svg.chart { display: block; width: 100%; height: auto; margin-top: 0.2rem; }
-  .ckey { display: flex; flex-wrap: wrap; gap: 0.2rem 0.9rem; margin: 0.3rem 0 0.6rem; padding: 0; list-style: none; font-size: 0.76rem; color: #C9D3E3; }
+  .vhead h3 { margin: 0; font-size: 1.1rem; }
+  .def { margin: 0.25rem 0 0; max-width: 70ch; font-size: 0.86rem; line-height: 1.4; color: #B6C1D3; }
+  .headline { margin: 0.75rem 0 0; font-size: 1.35rem; font-weight: 800; line-height: 1.2; }
+  .amount { margin: 0.15rem 0 0.6rem; font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .amount .period { margin-left: 0.5rem; font-weight: 400; color: var(--dim); }
+  svg.chart { display: block; width: 100%; height: auto; }
+  .means { margin-top: 0.7rem; padding: 0.65rem 0.85rem 0.75rem; border-radius: 10px; background: rgba(127, 178, 255, 0.09); }
+  .means h4 {
+    margin: 0; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  .means p { margin: 0.4rem 0 0; max-width: 70ch; font-size: 0.95rem; line-height: 1.45; }
+  .ckey { display: flex; flex-wrap: wrap; gap: 0.2rem 0.9rem; margin: 0.35rem 0 0; padding: 0; list-style: none; font-size: 0.78rem; color: #C9D3E3; }
   .ckey i { display: inline-block; width: 18px; height: 0; margin-right: 0.35rem; vertical-align: middle; border-top: 2px solid; }
   .ckey .m i { border-color: #6F7B8D; border-top-width: 1px; }
   .ckey .a i { border-color: var(--accent); }
   .ckey .f i { border-color: #FFFFFF; border-top-style: dashed; }
   .ckey .b i { height: 9px; border: 0; background: rgba(127, 178, 255, 0.36); }
-  .var p { margin: 0.45rem 0; font-size: 0.92rem; line-height: 1.45; }
-  .var p.small, .pfoot p { font-size: 0.82rem; color: #B6C1D3; }
-  dl.facts { margin: 0.7rem 0 0.4rem; display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.8rem; font-size: 0.82rem; }
+  .means p.small, details p, .pfoot p { max-width: 70ch; font-size: 0.82rem; line-height: 1.45; color: #B6C1D3; }
+  details p { margin: 0.45rem 0; }
+  dl.facts { margin: 0.5rem 0 0.4rem; display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.8rem; font-size: 0.82rem; }
   dl.facts dt { color: var(--dim); } dl.facts dd { margin: 0; }
   .var a { color: var(--accent); font-size: 0.86rem; }
-  details { margin-top: 0.6rem; font-size: 0.84rem; }
+  details { margin-top: 0.6rem; font-size: 0.86rem; }
   summary { cursor: pointer; color: var(--accent); font-weight: 600; min-height: 28px; }
   table { width: 100%; margin-top: 0.4rem; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 0.8rem; }
   th, td { padding: 0.22rem 0.3rem; text-align: right; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
@@ -221,11 +269,15 @@
   body.phone #ticks { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
   body.phone .pill { font-size: 0.86rem; padding: 0 0.6rem; }
   body.phone .switch { position: fixed; right: 12px; bottom: 12px; margin: 0; }
-  body.phone #legend { bottom: 60px; font-size: 0.72rem; padding: 0.4rem 0.6rem; }
+  body.phone #legend { bottom: 60px; font-size: 0.74rem; padding: 0.45rem 0.6rem 0.5rem; }
+  body.phone .ktitle { margin-bottom: 0.25rem; }
+  body.phone .kitems { gap: 0.25rem 0.7rem; margin-bottom: 0.3rem; }
+  body.phone .kramp { width: 30px; height: 11px; }
+  body.phone .var { padding: 0.8rem 0.8rem 0.9rem; }
   body.no-globe .switch, body.no-globe #close { display: none; }
 
   @media (prefers-reduced-motion: reduce) {
-    #panel, #bar, #legend, #start { transition: none !important; }
+    #panel, #bar, #legend, #start, #title { transition: none !important; }
   }
 </style>
 </head>
@@ -233,6 +285,7 @@
 <canvas id="stars" aria-hidden="true"></canvas>
 <div id="globe"></div>
 
+<h1 id="title">Earth Trend Detective</h1>
 <button id="start" type="button">Start</button>
 
 <div id="bar">
@@ -656,13 +709,20 @@
       .map(function (g) { return cards[g.id].data; }));
   }
 
+  // Color key: one ramp per trend direction, made with the function that
+  // colors the stripes, so the key always matches the globe.
+  function rampCss(direction) {
+    var stops = [0, 0.25, 0.5, 0.75, 1].map(function (t) { return shade(direction, t); });
+    return "linear-gradient(90deg," + stops.join(",") + ")";
+  }
   function renderLegend() {
     var d = P.text.directions;
-    legend.innerHTML =
-      '<span class="key increase">' + GLYPH.increase + " " + esc(d.increase) + "</span>" +
-      '<span class="key decrease">' + GLYPH.decrease + " " + esc(d.decrease) + "</span>" +
-      '<span class="key inconclusive">' + GLYPH.inconclusive + " " + esc(d.inconclusive) + "</span><br>" +
-      '<span class="ramp" aria-hidden="true"></span>' + esc(P.text.stripes);
+    legend.innerHTML = '<div class="ktitle">' + esc(P.text.color_key) + '</div><div class="kitems">' +
+      ["increase", "decrease", "inconclusive"].map(function (direction) {
+        return '<span class="kitem ' + direction + '">' +
+          '<i class="kramp" aria-hidden="true" style="background:' + rampCss(direction) + '"></i>' +
+          GLYPH[direction] + " " + esc(d[direction]) + "</span>";
+      }).join("") + "</div><div>" + esc(P.text.stripes) + "</div>";
   }
 
   function renderTicks() {
@@ -702,11 +762,14 @@
     return { values: values, low: first, high: last, decimals: Math.max(0, -Math.floor(Math.log10(step) + 1e-9)) };
   }
 
-  // Monthly values, annual means, fitted trend and its confidence band.
-  function chartSvg(result) {
+  // Monthly values, annual means, fitted trend and its confidence band,
+  // drawn at the width of the panel so the text stays one size.
+  function chartSvg(result, width) {
     var mt = result.monthly.t, mv = result.monthly.v, a = result.annual;
     if (!mt.length) return "";
-    var W = 380, H = 210, left = 48, right = 8, top = 18, bottom = 22;
+    var W = Math.max(280, Math.round(width || 380));
+    var H = Math.round(Math.min(300, Math.max(200, W * 0.42)));
+    var left = 50, right = 10, top = 20, bottom = 24;
     var x0 = Math.floor(minOf(mt)), x1 = Math.ceil(maxOf(mt));
     var all = mv.concat(a.lo, a.hi);
     var ticks = niceTicks(minOf(all), maxOf(all), 4);
@@ -720,17 +783,17 @@
       esc(result.label + ", " + result.period + ", in " + result.unit +
           ": monthly values, annual means" + (a.fit.length ? ", fitted trend" : "") +
           (a.lo.length ? " and confidence band" : "")) + '">';
-    s += '<text x="4" y="10" fill="#9AA6B8" font-size="10">' + esc(result.unit) + "</text>";
+    s += '<text x="4" y="11" fill="#9AA6B8" font-size="11">' + esc(result.unit) + "</text>";
     ticks.values.forEach(function (v) {
       s += '<line x1="' + left + '" x2="' + (W - right) + '" y1="' + Y(v).toFixed(1) + '" y2="' + Y(v).toFixed(1) +
         '" stroke="rgba(255,255,255,0.09)"/>' +
-        '<text x="' + (left - 6) + '" y="' + (Y(v) + 3).toFixed(1) + '" text-anchor="end" fill="#9AA6B8" font-size="10">' +
+        '<text x="' + (left - 6) + '" y="' + (Y(v) + 4).toFixed(1) + '" text-anchor="end" fill="#9AA6B8" font-size="11">' +
         v.toFixed(ticks.decimals) + "</text>";
     });
     for (var year = Math.ceil(x0 / 5) * 5; year <= x1; year += 5) {
       s += '<line x1="' + X(year).toFixed(1) + '" x2="' + X(year).toFixed(1) + '" y1="' + (H - bottom) + '" y2="' + (H - bottom + 4) +
         '" stroke="#9AA6B8"/>' +
-        '<text x="' + X(year).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle" fill="#9AA6B8" font-size="10">' + year + "</text>";
+        '<text x="' + X(year).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle" fill="#9AA6B8" font-size="11">' + year + "</text>";
     }
     s += '<path d="' + path(mt, mv) + '" fill="none" stroke="#6F7B8D" stroke-width="0.9"/>';
     if (a.lo.length) {
@@ -772,27 +835,66 @@
     return s + "</tbody></table></details>";
   }
 
-  function variableSection(result) {
-    var s = '<section class="var"><div class="vhead"><h3>' + esc(result.label) + "</h3>" +
-      '<span class="badge ' + result.direction + '">' + esc(result.badge) + "</span></div>";
+  // Short answer first: one line per ticked variable.
+  function glanceList(g, ids) {
+    return '<h3 class="sec">At a glance</h3><ul class="glance">' + ids.map(function (v) {
+      var result = P.results[g.id][v];
+      var amount = (result.trend_text ? esc(result.trend_text) + " " + esc(result.trend_unit) + " \u00B7 " : "") +
+        esc(result.period);
+      return '<li class="' + result.direction + '">' +
+        '<span class="glyph" aria-hidden="true">' + GLYPH[result.direction] + "</span>" +
+        '<span class="gname">' + esc(variable(v).short) + "</span>" +
+        '<span class="ghead">' + esc(result.headline) + "</span>" +
+        '<span class="gval">' + amount + "</span></li>";
+    }).join("") + "</ul>";
+  }
+
+  function readingGuide() {
+    return '<details class="guide"><summary>How to read the charts</summary>' +
+      "<p>" + esc(P.text.chart_guide) + "</p><p>" + esc(P.text.uncertainty_guide) + "</p></details>";
+  }
+
+  // One variable: what it is, the result in plain words, the chart, what
+  // the result means, then the source details folded away.
+  function variableSection(v, result) {
+    var s = '<section class="var ' + result.direction + '"><div class="vhead"><h3>' + esc(result.label) + "</h3>" +
+      '<span class="badge ' + result.direction + '" title="' + esc(result.badge_note) + '">' + esc(result.badge) +
+      "</span></div>";
+    if (result.definition) s += '<p class="def">' + esc(result.definition) + "</p>";
+    s += '<p class="headline"><span class="glyph" aria-hidden="true">' + GLYPH[result.direction] + "</span> " +
+      esc(result.headline) + "</p>";
     if (result.trend_text) {
-      s += '<p class="big ' + result.direction + '"><span class="glyph ' + result.direction + '" aria-hidden="true">' +
-        GLYPH[result.direction] + "</span> " + esc(result.trend_text) +
-        ' <span class="unit">' + esc(result.trend_unit) + "</span>" +
+      s += '<p class="amount">' + esc(result.trend_text) + ' <span class="unit">' + esc(result.trend_unit) + "</span>" +
         '<span class="period">' + esc(result.period) + "</span></p>";
     }
-    s += chartSvg(result) + chartKey(result);
-    if (result.uncertainty) s += "<p>" + esc(result.uncertainty) + "</p>";
-    if (result.conclusion) s += "<p>" + esc(result.conclusion) + "</p>";
-    if (result.badge_note) s += '<p class="small">' + esc(result.badge_note) + "</p>";
-    s += '<dl class="facts">' + result.facts.map(function (fact) {
+    s += '<div class="chartbox" data-v="' + esc(v) + '"></div>' + chartKey(result);
+
+    if (result.conclusion || result.uncertainty) {
+      s += '<div class="means"><h4>What this means</h4>';
+      if (result.conclusion) s += "<p>" + esc(result.conclusion) + "</p>";
+      if (result.uncertainty) s += "<p>" + esc(result.uncertainty) + "</p>";
+      if (result.badge_note) s += '<p class="small">' + esc(result.badge_note) + "</p>";
+      s += "</div>";
+    }
+
+    s += '<details><summary>Data source and method</summary><dl class="facts">' + result.facts.map(function (fact) {
       return "<dt>" + esc(fact[0]) + "</dt><dd>" + esc(fact[1]) + "</dd>";
     }).join("") + "</dl>";
-    result.notes.forEach(function (note) { s += '<p class="small">' + esc(note) + "</p>"; });
+    result.notes.forEach(function (note) { s += "<p>" + esc(note) + "</p>"; });
     if (/^https:\/\//.test(result.source_url)) {
       s += '<a href="' + esc(result.source_url) + '" target="_blank" rel="noopener noreferrer">Reproduce this series in NASA Giovanni</a>';
     }
-    return s + yearlyTable(result) + "</section>";
+    return s + "</details>" + yearlyTable(result) + "</section>";
+  }
+
+  // Draw each chart at the width its card has right now.
+  function drawCharts() {
+    if (!S.panel) return;
+    var results = P.results[S.region];
+    Array.prototype.forEach.call(document.querySelectorAll("#pbody .chartbox"), function (box) {
+      var result = results[box.getAttribute("data-v")];
+      if (result) box.innerHTML = chartSvg(result, box.clientWidth);
+    });
   }
 
   function renderPanel() {
@@ -819,15 +921,16 @@
     prov.title = P.text.provisional_notice;
 
     var ids = tickedIds(g.id);
-    var html = '<p class="where">' + esc(g.description) + "</p>";
+    var html = '<h2 class="rname">' + esc(g.label) + '</h2><p class="where">' + esc(g.description) + "</p>";
     html += ids.length
-      ? ids.map(function (v) { return variableSection(P.results[g.id][v]); }).join("")
+      ? glanceList(g, ids) + readingGuide() +
+        ids.map(function (v) { return variableSection(v, P.results[g.id][v]); }).join("")
       : '<p class="empty">Tick a variable to see its chart.</p>';
     html += '<div class="pfoot">' +
       (P.provisional ? "<p>" + esc(P.text.provisional_notice) + "</p>" : "") +
-      "<p>" + esc(P.text.uncertainty_guide) + "</p>" +
       "<p>" + esc(P.text.short_record) + " " + esc(P.text.saved_data) + "</p></div>";
     document.getElementById("pbody").innerHTML = html;
+    drawCharts();
   }
 
   function openPanel(regionId) {
@@ -992,6 +1095,7 @@
   function onResize() {
     body.classList.toggle("phone", isPhone());
     drawStars();
+    drawCharts();
     if (!globe) {
       if (body.classList.contains("no-globe")) panel.style.top = (bar.offsetHeight + 24) + "px";
       return;

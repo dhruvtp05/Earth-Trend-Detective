@@ -37,22 +37,25 @@ def test_app_is_one_full_screen_globe_with_no_streamlit_widgets():
 
     # Start, the tick boxes, the charts switch and close all live inside the
     # globe component; Streamlit itself adds no buttons or text.
-    for kind in ("button", "title", "header", "subheader", "caption", "selectbox",
+    for kind in ("button", "title", "header", "subheader", "caption", "markdown", "selectbox",
                  "radio", "slider", "toggle", "checkbox", "metric", "info", "error"):
         assert len(getattr(app, kind)) == 0, kind
 
-    styles = [block.value for block in app.markdown]
+    styles = [block.value for block in app.html]
     assert len(styles) == 1
     css = styles[0]
+    assert css.startswith("<style>") and css.endswith("</style>")
     assert f".st-key-{globe.STAGE_KEY} iframe" in css
     assert "position: fixed" in css and "100vw" in css and "100dvh" in css
     assert '[data-testid="stHeader"]' in css and "footer" in css
-    assert "padding: 0 !important" in css
 
 
-def test_page_and_component_use_the_same_background():
+def test_theme_options_are_set_in_the_config_file_not_in_css():
     config = (ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8")
     assert f'backgroundColor = "{theme.BACKGROUND}"' in config
+    # Quoted strings: Streamlit ignores unquoted numbers for these options.
+    assert 'paddingTop = "0"' in config and 'paddingBottom = "0"' in config
+    assert "block-container" not in theme._FULLSCREEN
 
 
 # --- Regions -----------------------------------------------------------------
@@ -144,6 +147,16 @@ def test_labels_carry_value_unit_and_uncertainty_wording(payload):
     assert significant["badge_note"].startswith("Statistically significant: the 95%")
 
 
+def test_panel_gives_a_plain_headline_and_says_what_each_variable_is(payload):
+    for region in payload["results"].values():
+        for variable_id, result in region.items():
+            expected = "Downward trend" if variable_id == "soilmoisture" else "No clear trend"
+            assert result["headline"] == expected
+            # Not significant must never be worded as "no change".
+            assert "no change" not in result["headline"].lower()
+            assert result["definition"] == catalog.VARIABLES[variable_id].definition
+
+
 def test_chart_series_are_complete_and_the_band_contains_the_fit(payload):
     for region in payload["results"].values():
         for result in region.values():
@@ -167,7 +180,10 @@ def test_payload_text_comes_from_the_copy_module(payload):
     assert text["provisional_tag"] == "Provisional"
     assert text["provisional_notice"] == copy.PROVISIONAL_NOTICE
     assert text["uncertainty_guide"] == copy.UNCERTAINTY_GUIDE
+    assert text["chart_guide"] == copy.CHART_GUIDE
+    assert text["color_key"] == "Color key"
     assert text["stripes"].startswith("Each stripe is one year, 2000 to 2025")
+    assert "darker means a lower yearly average" in text["stripes"]
 
 
 # --- The component files -----------------------------------------------------
@@ -180,6 +196,25 @@ def test_component_has_only_start_ticks_details_switch_and_close():
     assert re.findall(r'<input[^>]*id="([^"]+)"', body) == ["detailsToggle"]
     assert ">Start</button>" in body
     assert "Charts &amp; details" in body
+
+
+def test_start_page_shows_the_app_title():
+    html = _page_html()
+    assert f'<h1 id="title">{copy.APP_TITLE}</h1>' in html
+    # Shown with the Start button only: it fades out when the tour begins.
+    assert "body.idle.ready #title" in html
+
+
+def test_color_key_is_drawn_with_the_colors_of_the_stripes():
+    html = _page_html()
+    # Stripes and key both take their colors from shade().
+    assert "color: shade(result.direction, t)" in html
+    assert "return shade(direction, t); });" in html
+    assert '["increase", "decrease", "inconclusive"].map' in html
+
+
+def test_charts_panel_takes_two_fifths_of_a_laptop_window():
+    assert "--panel-w: clamp(380px, 40vw, 820px);" in _page_html()
 
 
 def test_component_loads_nothing_from_another_server():

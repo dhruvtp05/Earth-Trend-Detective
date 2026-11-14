@@ -13,11 +13,11 @@ from __future__ import annotations
 
 import streamlit as st
 
-from services import catalog
+from services import catalog, copy as copy_module
 from ui import globe, theme
 
 st.set_page_config(
-    page_title="Earth Trend Detective",
+    page_title=copy_module.APP_TITLE,
     layout="wide",
     initial_sidebar_state="collapsed",
 )
