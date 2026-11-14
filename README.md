@@ -95,7 +95,10 @@ ui/
   globe.py              rotating 3D globe on the landing screen
   globe_component/      globe library, NASA Blue Marble texture, credits
   region_map.py         flat map of the two study regions
-  results.py            result sentence, trend, chart, downloads
+  focus_map.py          pan-and-zoom map beside the results (no place names)
+  map_component/        map library and credits
+  theme.py              page widths, two-panel layout, data panel dark mode
+  results.py            data panel: controls, result, chart types, downloads
   compare.py            two regions side by side
   evidence.py           dataset, method and sources
 services/

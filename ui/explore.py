@@ -10,6 +10,7 @@ between screens.
 
 from __future__ import annotations
 
+import time
 from datetime import date
 
 import streamlit as st
@@ -65,7 +66,7 @@ def render_landing() -> None:
     )
 
     # The globe turns to North America and highlights the study regions.
-    # Picking one opens the selection screen with that region chosen.
+    # Picking one opens that region's results, where the map zooms out to it.
     chosen = globe.render(catalog.region_ids())
     if chosen:
         _open_region(chosen)
@@ -87,12 +88,14 @@ def render_landing() -> None:
 
 
 def _open_region(region_id: str) -> None:
-    """Go to the selection screen with a region already chosen."""
+    """Open the results screen for a region picked on the globe."""
     state = st.session_state
     state["region_id"] = region_id
     for key in ("w_region", "w_variable", "w_period"):
         state.pop(key, None)
-    go_to("select")
+    # A new id makes the map play its zoom-out introduction once.
+    state["map_intro_id"] = int(time.time() * 1000)
+    go_to("results")
 
 
 def _reset_period(available: tuple[int, int]) -> None:
@@ -169,10 +172,10 @@ def render_selection() -> None:
 
     back, forward = st.columns(2)
     with back:
-        if st.button("Back", use_container_width=True):
+        if st.button("Back", width="stretch"):
             go_to("landing")
     with forward:
-        if st.button("Investigate", type="primary", use_container_width=True):
+        if st.button("Investigate", type="primary", width="stretch"):
             go_to("results")
 
 

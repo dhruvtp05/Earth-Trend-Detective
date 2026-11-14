@@ -83,7 +83,7 @@ def _chart(investigations: list[Investigation]) -> None:
     )
     figure.update_xaxes(showgrid=True, gridcolor="#ECEEF2")
     figure.update_yaxes(showgrid=True, gridcolor="#ECEEF2")
-    st.plotly_chart(figure, use_container_width=True)
+    st.plotly_chart(figure, width="stretch")
 
 
 def _table(investigations: list[Investigation]) -> pd.DataFrame:
@@ -139,12 +139,12 @@ def render(investigations: list[Investigation]) -> None:
     table = _table(investigations)
     if not table.empty:
         with st.expander("View the yearly averages as a table"):
-            st.dataframe(table, use_container_width=True, hide_index=True)
+            st.dataframe(table, width="stretch", hide_index=True)
 
     left, right = st.columns(2)
     with left:
-        if st.button(f"Back to the {first.location_label} result", use_container_width=True):
+        if st.button(f"Back to the {first.location_label} result", width="stretch"):
             go_to("results")
     with right:
-        if st.button("Change selection", use_container_width=True):
+        if st.button("Change selection", width="stretch"):
             go_to("select")

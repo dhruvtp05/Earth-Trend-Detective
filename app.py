@@ -14,17 +14,18 @@ import streamlit as st
 
 from services import catalog, investigate, section_a
 from services.contracts import Investigation
-from ui import compare, evidence, explore, region_map, results
+from ui import compare, evidence, explore, focus_map, region_map, results, theme
 
 st.set_page_config(
     page_title="Earth Trend Detective",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="collapsed",
 )
 
+# Cleared by "Start over". Display preferences such as dark mode are kept.
 SELECTION_KEYS = (
     "screen", "region_id", "variable_id", "period", "compare_region_id",
-    "w_region", "w_variable", "w_period",
+    "w_region", "w_variable", "w_period", "chart_kind", "show_forecast_note",
 )
 
 
@@ -35,7 +36,7 @@ def _header() -> None:
         st.caption("NASA Space Apps · UIC Computer Science and Data Science")
     with action:
         if st.session_state.get("screen", "landing") != "landing":
-            if st.button("Start over", use_container_width=True):
+            if st.button("Start over", width="stretch"):
                 for key in SELECTION_KEYS:
                     st.session_state.pop(key, None)
                 st.rerun()
@@ -58,7 +59,32 @@ def _load(region_id: str) -> Investigation | None:
     return None
 
 
+def _render_results() -> None:
+    """Map on the left, data panel on the right (slightly wider)."""
+    state = st.session_state
+    map_column, data_column = st.columns([9, 11], gap="medium")
+
+    with map_column:
+        with st.container(key=theme.MAP_PANEL_KEY):
+            switched = focus_map.render(catalog.region_ids(), state["region_id"])
+    if switched:
+        state["region_id"] = switched
+        st.rerun()
+
+    with data_column:
+        with st.container(key=theme.DATA_PANEL_KEY):
+            results.render_controls()
+            inv = _load(state["region_id"])
+            if inv is not None:
+                results.render(inv)
+
+
 def main() -> None:
+    if st.session_state.get("screen", "landing") == "results":
+        theme.split_page(data_dark=bool(st.session_state.get("data_dark", False)))
+    else:
+        theme.narrow_page()
+
     _header()
 
     if not catalog.region_ids():
@@ -78,10 +104,7 @@ def main() -> None:
         explore.render_selection()
         region_map.render_region_map()
     elif screen == "results":
-        inv = _load(state["region_id"])
-        if inv is not None:
-            results.render(inv)
-            region_map.render_region_map([state["region_id"]])
+        _render_results()
     elif screen == "evidence":
         inv = _load(state["region_id"])
         if inv is not None:
