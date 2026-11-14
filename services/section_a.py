@@ -111,8 +111,16 @@ def _format_bounds(bbox: str) -> str:
     return f"{lat(south)}–{lat(north)}, {lon(west)}–{lon(east)}"
 
 
-def _unit_from_url(url: str) -> str | None:
-    match = re.search(r"units=([^)&]+)", unquote(url))
+def _unit_from_url(url: str, column: str) -> str | None:
+    """Unit Giovanni attached to this file's own variable, if any.
+
+    A reproduce URL can list several variables, so the unit is taken only
+    when it is attached to the variable named in the data column.
+    """
+    variable = column.removeprefix("mean_")
+    if not variable:
+        return None
+    match = re.search(re.escape(variable) + r"\(units=([^)]+)\)", unquote(url))
     return match.group(1) if match else None
 
 
@@ -141,7 +149,13 @@ def get_series(
     parsed = _parse(_path_for(location_id, variable))
 
     in_period = [(when, value) for when, value in parsed.rows if start <= when <= end]
-    points = [SeriesPoint(date=when, value=value) for when, value in in_period if value is not None]
+    info = catalog.VARIABLES.get(variable)
+    scale = info.scale if info is not None else 1.0
+    points = [
+        SeriesPoint(date=when, value=value * scale)
+        for when, value in in_period
+        if value is not None
+    ]
     missing = len(in_period) - len(points)
 
     fill_text = "blank" if parsed.fill_value is None else f"equal to the fill value ({parsed.fill_value:g}) or blank"
@@ -154,7 +168,6 @@ def get_series(
         parsed.header.get("Data Bounding Box") or parsed.header.get("User Bounding Box", "")
     )
     source_url = parsed.header.get("URL to Reproduce Results", "")
-    info = catalog.VARIABLES.get(variable)
 
     if info is not None:
         metadata = DatasetMetadata(
@@ -174,7 +187,7 @@ def get_series(
     else:
         # A dataset the catalog has no entry for yet: show only what the
         # file itself states.
-        unit = _unit_from_url(source_url)
+        unit = _unit_from_url(source_url, parsed.column)
         metadata = DatasetMetadata(
             dataset_name=parsed.column or "Not stated in the data file",
             dataset_version="See dataset identifier",

@@ -52,6 +52,7 @@ The app reads these saved files; it does not make live requests.
 | Variable | Dataset | Period |
 |---|---|---|
 | Precipitation (mm/day) | MERRA-2 M2TMNXFLX v5.12.4, bias-corrected total surface precipitation | 2005–2025 |
+| Evaporation from land (shown in mm/day) | MERRA-2 M2TMNXLND v5.12.4, EVLAND | 2005–2025 |
 | Soil moisture, top 10 cm | GLDAS Noah Land Surface Model (GLDAS_NOAH025_M) v2.1 | 2000–2025 |
 | Storm surface runoff | GLDAS Noah Land Surface Model (GLDAS_NOAH025_M) v2.1 | 2000–2025 |
 

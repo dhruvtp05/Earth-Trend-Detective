@@ -9,8 +9,8 @@ The app investigates one variable in one region over a chosen period, and can
 compare the same variable across two regions.
 
 - **Regions:** Midwest (Region B) and Southwest (Region A), as area averages.
-- **Variables delivered:** precipitation, soil moisture (top 10 cm), storm
-  surface runoff.
+- **Variables delivered:** precipitation, evaporation from land, soil
+  moisture (top 10 cm), storm surface runoff.
 - **Starting example:** precipitation in the Midwest, which includes Chicago.
 
 Changed from the original brief: Section A delivered regional precipitation and
@@ -38,6 +38,7 @@ Giovanni "Time Series, Area-Averaged" exports, monthly, no missing months.
 | `midwest_precip_regionB.csv` | 40–49°N, 92.5–76.25°W | same | 2005–2025 |
 | `southwest_soilmoisture_regionA.csv` | 31.125–39.875°N, 114.875–106.125°W | GLDAS_NOAH025_M 2.1, SoilMoi0_10cm_inst | 2000–2025 |
 | `midwest_soilmoisture_regionB.csv` | 40.125–48.875°N, 92.875–76.125°W | same | 2000–2025 |
+| `southwest_evap_regionA.csv`, `midwest_evap_regionB.csv` | as precipitation | MERRA-2 M2TMNXLND 5.12.4, EVLAND | 2005–2025 |
 | `southwest_runoff_regionA.csv` | as soil moisture | GLDAS_NOAH025_M 2.1, Qs_acc | 2000–2025 |
 | `midwest_runoff_regionB.csv` | as soil moisture | same | 2000–2025 |
 
@@ -86,9 +87,9 @@ lands, replace the function body and set `IS_PLACEHOLDER = False`.
 
 Section A:
 - [ ] Retrieval date for each file (shown as "not recorded yet").
-- [ ] Confirm the soil moisture and runoff units. The files state none; the app
-      shows kg/m² and kg/m² per 3 hours from the GLDAS product documentation,
-      each with a note.
+- [ ] Confirm the units of soil moisture, runoff and evaporation. The files
+      state none; the app uses the units in the product documentation, each
+      with a note. Evaporation is converted from kg/m²/s to mm/day (x 86,400).
 
 Section B:
 - [ ] Trend method and how seasonality and autocorrelation are handled.

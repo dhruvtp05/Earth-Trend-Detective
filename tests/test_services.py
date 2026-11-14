@@ -47,6 +47,8 @@ def test_all_delivered_files_are_discovered():
         ("southwest", "soilmoisture", (2000, 2025), 312),
         ("midwest", "runoff", (2000, 2025), 312),
         ("southwest", "runoff", (2000, 2025), 312),
+        ("midwest", "evap", (2005, 2025), 252),
+        ("southwest", "evap", (2005, 2025), 252),
     ],
 )
 def test_series_matches_the_file(region, variable, years, months):
@@ -67,6 +69,21 @@ def test_first_value_and_bounds_are_read_exactly():
     assert metadata.coordinates_or_bounds == "Area average over 40°N–49°N, 92.5°W–76.25°W"
     assert metadata.unit == "mm/day"
     assert metadata.data_kind == "reanalysis"
+
+
+def test_evaporation_is_converted_from_kg_m2_s_to_mm_per_day():
+    points, metadata = section_a.get_series(
+        "midwest", "evap", date(2005, 1, 1), date(2005, 12, 31)
+    )
+    assert points[0].value == pytest.approx(5.02223611e-06 * 86400)
+    assert metadata.unit == "mm/day"
+    assert "86,400" in metadata.unit_note
+
+
+def test_unit_is_only_read_for_the_files_own_variable():
+    url = "https://x/#data=A_PRECIP(units%3Dmm%2Fday)%2CB_EVLAND&format=json"
+    assert section_a._unit_from_url(url, "mean_A_PRECIP") == "mm/day"
+    assert section_a._unit_from_url(url, "B_EVLAND") is None
 
 
 def test_fill_values_are_treated_as_missing(tmp_path, monkeypatch):

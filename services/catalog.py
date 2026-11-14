@@ -44,6 +44,8 @@ class VariableInfo:
     spatial_resolution: str
     data_kind: DataKind
     unit_note: str = ""
+    # Multiplier applied to the file's values to reach `unit`.
+    scale: float = 1.0
 
 
 REGIONS: dict[str, RegionInfo] = {
@@ -69,6 +71,27 @@ VARIABLES: dict[str, VariableInfo] = {
         ),
         unit="mm/day",
         dataset_name="MERRA-2 M2TMNXFLX, bias-corrected total surface precipitation (PRECTOTCORR)",
+        dataset_version="5.12.4",
+        spatial_resolution="0.5° latitude × 0.625° longitude, monthly",
+        data_kind="reanalysis",
+    ),
+    "evap": VariableInfo(
+        id="evap",
+        label="Evaporation from land",
+        definition=(
+            "Water returned from the land to the air, from soil, plants and "
+            "surface water, as an average daily amount in each month, "
+            "averaged over the region."
+        ),
+        unit="mm/day",
+        unit_note=(
+            "The data file does not state a unit. kg/m²/s is the unit documented "
+            "for this MERRA-2 variable; the app multiplies it by 86,400 to show "
+            "mm/day, the same unit as precipitation. Awaiting Section A's "
+            "confirmation."
+        ),
+        scale=86400.0,
+        dataset_name="MERRA-2 M2TMNXLND, evaporation from land (EVLAND)",
         dataset_version="5.12.4",
         spatial_resolution="0.5° latitude × 0.625° longitude, monthly",
         data_kind="reanalysis",
