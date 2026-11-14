@@ -13,12 +13,14 @@ services/copy.py.
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import streamlit as st
 import streamlit.components.v1 as components
 
-from services import catalog, copy as copy_module, investigate, section_a, section_b
+from services import catalog, copy as copy_module, investigate, prediction, section_a, section_b
 from services.contracts import Investigation
 
 STAGE_KEY = "globe_stage"
@@ -110,19 +112,31 @@ def _result(inv: Investigation) -> dict:
     }
 
 
-def build_payload() -> dict:
+def _prediction(inv: Investigation, as_of: date) -> dict:
+    metadata = {"label": inv.metadata.variable_label, "unit": inv.metadata.unit,
+                "source_url": inv.metadata.source_url, "unit_note": inv.metadata.unit_note}
+    try:
+        return {**prediction.forecast(inv.points, as_of=as_of), **metadata}
+    except (prediction.PredictionUnavailable, ArithmeticError) as exc:
+        return {"status": "unavailable", "reason": str(exc), **metadata}
+
+
+def build_payload(as_of: date | None = None) -> dict:
     """Everything the globe shows, for every region and variable.
 
     Each variable is analysed over all the years its saved file covers.
     """
     regions = globe_regions()
+    as_of = as_of or datetime.now(ZoneInfo("America/Chicago")).date()
     results: dict[str, dict[str, dict]] = {}
+    predictions: dict[str, dict[str, dict]] = {}
     variable_ids: list[str] = []
     years: list[int] = []
 
     for region in regions:
         region_id = region["id"]
         results[region_id] = {}
+        predictions[region_id] = {}
         for variable_id in catalog.variable_ids(region_id):
             try:
                 first, last = section_a.available_years(region_id, variable_id)
@@ -130,6 +144,7 @@ def build_payload() -> dict:
             except section_a.DataUnavailableError:
                 continue
             results[region_id][variable_id] = _result(inv)
+            predictions[region_id][variable_id] = _prediction(inv, as_of)
             years += [first, last]
             if variable_id not in variable_ids:
                 variable_ids.append(variable_id)
@@ -150,6 +165,8 @@ def build_payload() -> dict:
             for variable_id in ordered
         ],
         "results": results,
+        "predictions": predictions,
+        "generated_on": as_of.isoformat(),
         "first_year": first_year,
         "last_year": last_year,
         "provisional": bool(section_b.IS_PLACEHOLDER),
@@ -164,6 +181,7 @@ def build_payload() -> dict:
             "saved_data": copy_module.SAVED_DATA_NOTICE,
             "short_record": copy_module.SHORT_RECORD_NOTE,
             "uncertainty_guide": copy_module.UNCERTAINTY_GUIDE,
+            "prediction": copy_module.PREDICTION_TEXT,
         },
     }
 
@@ -177,11 +195,12 @@ def _data_signature() -> tuple:
 
 
 @st.cache_data(show_spinner=False)
-def _cached_payload(signature: tuple) -> dict:
-    return build_payload()
+def _cached_payload(signature: tuple, as_of: date, model_version: str) -> dict:
+    return build_payload(as_of)
 
 
 def render() -> None:
     """Show the full-screen globe (sized by ui/theme.py)."""
     with st.container(key=STAGE_KEY):
-        _globe(payload=_cached_payload(_data_signature()), key="earth_globe", default=None)
+        today = datetime.now(ZoneInfo("America/Chicago")).date()
+        _globe(payload=_cached_payload(_data_signature(), today, prediction.VERSION), key="earth_globe", default=None)

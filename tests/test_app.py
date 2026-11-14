@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -21,7 +22,7 @@ VARIABLES = ["precip", "evap", "soilmoisture", "runoff"]
 
 @pytest.fixture(scope="module")
 def payload() -> dict:
-    return globe.build_payload()
+    return globe.build_payload(as_of=date(2026, 11, 14))
 
 
 def _page_html() -> str:
@@ -184,6 +185,27 @@ def test_payload_text_comes_from_the_copy_module(payload):
     assert text["color_key"] == "Color key"
     assert text["stripes"].startswith("Each stripe is one year, 2000 to 2025")
     assert "darker means a lower yearly average" in text["stripes"]
+    assert text["prediction"] == copy.PREDICTION_TEXT
+
+
+def test_prediction_payload_covers_both_regions_and_all_variables(payload):
+    for region in ("southwest", "midwest"):
+        assert set(payload["predictions"][region]) == set(VARIABLES)
+        for result in payload["predictions"][region].values():
+            assert result["status"] == "experimental"
+            assert result["origin"] == "2025-12-01"
+            assert len(result["months"]) == 12
+            assert result["months"][0]["date"] == "2026-12-01"
+            assert result["disaster_probability"]["flood"] is None
+    json.dumps(payload, allow_nan=False)
+
+
+def test_prediction_replaces_the_provisional_header_badge():
+    html = _page_html()
+    assert 'id="prov"' not in html
+    assert "predictionTab.textContent = 'Prediction'" in html
+    assert "S.view === 'prediction'" in html
+    assert 'P.text.provisional_notice' in html, "historical caveat remains in the details"
 
 
 # --- The component files -----------------------------------------------------
