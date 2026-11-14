@@ -298,3 +298,19 @@ def coverage_sentence(metadata: DatasetMetadata) -> str:
         "station": "These values come from ground station measurements.",
     }
     return phrases.get(metadata.data_kind, "")
+
+
+PREDICTION_TEXT = {
+    "title": "Probabilistic prediction",
+    "intro": "Experimental monthly projections for the selected region, using only the saved NASA record.",
+    "origin_note": "The forecast starts from the last saved observation, not today's weather. Missing recent months increase the forecast lead.",
+    "range_note": "The shaded area is a nominal 80% prediction range estimated from earlier forecast errors. Held-out coverage below shows how often that range actually contained later values; it is not a guarantee.",
+    "hazard_title": "Floods, droughts and these factors",
+    "hazard_note": "These monthly regional averages have no observed disaster labels. They cannot establish a probability of flooding, drought, property damage or other natural disasters. Flood and drought probabilities are unavailable from these files.",
+    "dry_note": "A lower-soil-moisture month means topsoil water below the historical lower quartile for the same calendar month. It is a dryness indicator, not a drought diagnosis.",
+    "wet_note": "A higher-runoff month means modeled surface runoff above the historical upper quartile for the same calendar month. It is a wetness indicator, not a flood prediction.",
+    "tail_note": "Indicator probabilities are shown only when the matching-lead backtest has enough positive and negative cases, improves Brier score over the seasonal reference, and passes the interval and baseline checks. Otherwise they are unavailable.",
+    "limited": "Limited backtest skill: treat the displayed values and range as exploratory model output.",
+    "method": "A seasonal baseline and a damped seasonal-trend model are compared on 48 earlier monthly targets. Their log-scale forecast errors form an empirical distribution. The selected model is then tested on 24 later targets at the same lead as the projection. Earlier test observations become available only at subsequent forecast origins.",
+    "no_joint": "The four variables come from different products and grids. Their separate probabilities are not combined into a disaster probability or a closed water budget.",
+}

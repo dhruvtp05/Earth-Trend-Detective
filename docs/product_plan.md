@@ -72,8 +72,8 @@ estimate_trend(points, period_start, period_end, confidence_level=0.95, unit="")
 on real data: annual means of complete years, ordinary least squares, 95%
 interval for the slope from the t distribution, the matching 95% confidence
 band for the fitted line, and no trend below 10 complete years. The charts
-panel marks these numbers with a "Provisional" tag and a note; the labels on
-the globe itself do not carry the tag. When Section B's method lands, replace
+panel explains this in its historical details footer. The former yellow
+"Provisional" header badge is replaced by a Prediction tab. When Section B's method lands, replace
 the function body (including `band_lower` and `band_upper`, or leave them
 `None` to draw no band) and set `IS_PLACEHOLDER = False`.
 
@@ -100,6 +100,11 @@ the function body (including `band_lower` and `band_upper`, or leave them
    confidence band) and a "What this means" box with the conclusion and
    interval sentences. Dataset facts, the Giovanni link and the yearly values
    are folded under each card. Close returns to the globe.
+5. Prediction tab: either region, 3/6/12 future months, forecast medians and
+   nominal 80% ranges, held-out performance and seasonal wet/dry indicators.
+   Forecasts use the saved record and are separate from Section B's historical
+   trends. Without observed flood/drought labels no disaster probabilities are
+   claimed. See `docs/prediction_method.md`.
 
 Rule for arrow, badge, headline and full color: a direction is shown only when
 the 95% confidence interval excludes zero (`services/copy.trend_direction`).

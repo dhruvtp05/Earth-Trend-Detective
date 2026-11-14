@@ -16,7 +16,8 @@ For each region and variable, the app answers:
 
 > **Status:** the data is real NASA data. The trend numbers are provisional:
 > they come from a placeholder method until the team's statistical analysis is
-> integrated. The charts panel carries a "Provisional" tag and explains this.
+> integrated. Historical details explain this; the Prediction tab contains a
+> separate experimental forecasting method.
 
 ## How it works
 
@@ -45,9 +46,12 @@ For each region and variable, the app answers:
    means" box with the conclusion and the confidence interval in words. The
    dataset details, the Giovanni link and the yearly values are folded away
    under each card.
+6. **Prediction**, next to the region tabs, shows experimental future monthly
+   medians and prediction ranges for precipitation, evaporation, topsoil moisture
+   and runoff. Choose either region and a 3-, 6- or 12-month future window.
 
-The only controls are Start, one tick box per variable, the Charts & details
-switch (with a tab per region inside the panel) and close. On a phone the panel
+The controls are Start, one tick box per variable, the Charts & details switch,
+region and Prediction tabs, prediction selectors, and close. On a phone the panel
 opens as a sheet over the lower part of the screen. If the device prefers
 reduced motion, the globe does not spin and Start goes straight to the final
 view. Without 3D graphics the tick boxes and the charts panel are shown alone.
@@ -127,6 +131,30 @@ The interface never:
 - draws a confidence band that the analysis did not supply,
 - labels area-averaged model output as a local measurement.
 
+### Experimental prediction
+
+`services/prediction.py` compares a seasonal baseline with a damped seasonal-trend
+model on log-transformed monthly observations. Earlier rolling forecast errors
+form an empirical predictive distribution. Each future lead has its own model
+selection period (48 targets), error distribution and later test (24 targets),
+using only information available at each historical origin. Model outputs are
+nonnegative, and prediction ranges describe future monthly values rather than
+the historical fitted line.
+
+Targets begin after today's date in America/Chicago. Their leads account for
+the gap since the final saved observation, currently December 2025. No live
+weather data are fetched. A daily cache regenerates on a new page load; a page
+left open retains its displayed generation date until reloaded.
+
+The nominal 80% prediction range is shown with actual held-out coverage and
+baseline error. Poor performance is explicitly marked. Probabilities of values
+below/above their calendar month's historical quartiles are withheld unless
+their backtests have enough cases, positive Brier skill, acceptable interval
+coverage and baseline performance. These are experimental monthly-condition
+indicators, not calibrated disaster probabilities. There are no observed flood
+or drought labels in the saved data; those disaster probabilities remain unknown.
+See [prediction method and limits](docs/prediction_method.md).
+
 ## Project structure
 
 ```
@@ -146,6 +174,7 @@ services/
   section_b.py          trend and uncertainty (placeholder)
   investigate.py        combines data and analysis for the interface
   copy.py               every sentence that states a scientific result
+  prediction.py         experimental monthly distributions and matching-lead tests
 data/                   saved NASA Giovanni exports
 tests/                  data, method, wording and globe payload tests
 docs/                   product plan and research notes
