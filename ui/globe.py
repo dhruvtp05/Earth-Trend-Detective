@@ -183,6 +183,7 @@ def build_payload(as_of: date | None = None) -> dict:
             ),
             "color_key": copy_module.COLOR_KEY_TITLE,
             "faded_key": copy_module.FADED_KEY_LABEL,
+            "hub_hint": copy_module.HUB_HINT,
             "chart_guide": copy_module.CHART_GUIDE,
             "provisional_tag": copy_module.PROVISIONAL_TAG,
             "provisional_notice": copy_module.PROVISIONAL_NOTICE,

@@ -81,17 +81,25 @@ the function body (including `band_lower` and `band_upper`, or leave them
 
 1. Idle: the globe spins slowly under the app title; the only control is Start.
 2. Tour: the camera eases to the Southwest, then the Midwest, then frames
-   both. A click, tap or Esc skips it.
-3. Explore: each region is a hub (its name) on the middle of its study area,
-   with one block per ticked variable around it, joined by red wires. A block
+   both. Each region's cluster opens as the camera arrives; the tour ends
+   with both closed. A click, tap or Esc skips it.
+3. Explore: each region is a hub (its name) on the middle of its study area.
+   Closed, that is all it shows. Pointing at the hub opens the cluster: one
+   block per ticked variable springs out around it, joined to the hub by a
+   curved wire colored from the hub's yellow to the variable's color, with a
+   bead at each end. It closes shortly after the pointer leaves; one cluster
+   is open at a time. Touch: the first tap on a hub opens it, a tap elsewhere
+   closes it. Keyboard: focus on the hub opens it. The camera is framed so
+   that either cluster can open without covering the other hub. A block
    is a row of yearly stripes (brightness = yearly average) over the
    variable's name, trend value and unit, and a "Significant" or
    "Inconclusive" badge. Color names the variable (precipitation orange,
    evaporation teal, soil moisture brown, runoff violet); stripes are faded
    when the interval includes zero. Pointing at a hub or a block lights the
-   wires that join them; clicking a block opens the charts panel at that
-   variable. A color key shows the four colors and the faded look. Controls:
-   one tick box per variable and the "Charts & details" switch.
+   wires that join them; clicking a hub or a block opens the charts panel
+   (a block: at that variable). A color key shows the four colors and the
+   faded look, with one line on how to open a region. Controls: one tick box
+   per variable and the "Charts & details" switch.
 4. Charts panel (click a region or use the switch; about 40% of a laptop
    window, a bottom sheet on a phone): region tabs, an "At a glance" line per
    ticked variable in plain words, then one card per variable with its
@@ -110,8 +118,8 @@ Rule for arrow, badge, headline and full color: a direction is shown only when
 the 95% confidence interval excludes zero (`services/copy.trend_direction`).
 "No clear trend" means the data cannot tell a rise from a fall; it is never
 worded as "no change". In smaller windows the blocks drop the trend value,
-then the badge, and on a phone with both regions in view only the hubs show;
-the full labels are always in the panel.
+then the badge, and on a phone with both regions in view the hubs do not open
+(a tap goes to the charts); the full labels are always in the panel.
 
 ## Open questions
 
