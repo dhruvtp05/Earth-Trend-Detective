@@ -23,10 +23,15 @@ For each region and variable, the app answers:
 
 1. The globe spins slowly under the app title, with a single **Start** button.
 2. Start moves the camera to the Southwest (Region A), then the Midwest
-   (Region B), then settles on both. A click, tap or Esc skips ahead.
-3. Each region is a hub with its name, pinned to the middle of its study area,
-   with one block per ticked variable around it and a red wire from the hub to
-   each block. A block is a row of yearly stripes, one stripe per year, over a
+   (Region B), then settles on both. Each region opens as the camera reaches
+   it, to show what it holds. A click, tap or Esc skips ahead.
+3. Each region is a hub with its name, pinned to the middle of its study area.
+   Pointing at the hub opens it: one block per ticked variable springs out
+   around it, each joined to the hub by a curved wire that runs from the hub's
+   yellow into the variable's color. It closes when the pointer leaves, and
+   one region is open at a time. On a touch screen the first tap opens the
+   hub; with the keyboard, tabbing to it does. A block is a row of yearly
+   stripes, one stripe per year, over a
    line with the variable's name, its trend and a "Significant" or
    "Inconclusive" badge. Brightness follows the yearly average. Color names
    the variable: orange for precipitation, teal for evaporation, brown for
@@ -34,10 +39,11 @@ For each region and variable, the app answers:
    includes zero the stripes are faded, the badge reads "Inconclusive" and no
    direction is shown. A color key in the corner is drawn with the stripes'
    own colors. In a small window the blocks drop the trend value, then the
-   badge; on a phone with both regions in view only the hubs are shown.
+   badge; on a phone with both regions in view the hubs do not open and a tap
+   goes straight to the charts.
 4. Pointing at a hub lights its wires and blocks; pointing at a block lights
-   that block, its wire and the hub. Clicking a block opens the charts panel
-   and glides to that variable's card.
+   that block, its wire and the hub, and a pulse runs along a lit wire.
+   Clicking a block opens the charts panel and glides to that variable's card.
 5. Clicking a hub or a region, or switching on **Charts & details**, opens a panel that
    takes about 40% of a laptop window. It starts with one plain-language line
    per variable ("Downward trend", "No clear trend"). Below that, each variable

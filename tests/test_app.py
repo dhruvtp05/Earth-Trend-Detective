@@ -183,6 +183,7 @@ def test_payload_text_comes_from_the_copy_module(payload):
     assert text["uncertainty_guide"] == copy.UNCERTAINTY_GUIDE
     assert text["chart_guide"] == copy.CHART_GUIDE
     assert text["color_key"] == "Color key"
+    assert text["hub_hint"] == copy.HUB_HINT
     assert text["stripes"].startswith("Each stripe is one year, 2000 to 2025")
     assert "darker means a lower yearly average" in text["stripes"]
     assert text["prediction"] == copy.PREDICTION_TEXT
@@ -261,6 +262,43 @@ def test_region_clusters_light_up_and_lead_to_the_charts():
     assert "text-align: left; opacity: 0.8;" in html
     assert "background: rgba(8, 46, 30, 0.40);" in html
     assert (COMPONENT / "archivo-black-latin.woff2").stat().st_size > 10_000
+
+
+def test_a_cluster_shows_only_its_hub_until_it_is_pointed_at():
+    html = _page_html()
+    # Closed by default: the blocks and wires are out of sight and cannot be clicked.
+    assert ".cluster:not(.open) .block {" in html
+    assert "opacity: 0; visibility: hidden; pointer-events: none;" in html
+    assert ".cluster.open .wires { opacity: 1; }" in html
+    assert "open: null," in html
+    # Pointing at the hub (not a tap) opens it; leaving closes it after a moment.
+    assert 'if (event.pointerType !== "touch" && onHub(event)) setOpen(g.id);' in html
+    assert 'if (event.pointerType !== "touch" && S.phase === "explore") closeSoon(g.id);' in html
+    # Keyboard: tabbing to the hub opens it, so its blocks can be reached.
+    assert "if (part(event)) setOpen(g.id);" in html
+    # Touch: the first tap on a closed hub opens it instead of the charts.
+    assert "if (tap && tap.touch && !tap.wasOpen && onHub(event) && canOpen(g.id)) { setOpen(g.id); return; }" in html
+    # The tour opens each cluster as the camera arrives and ends with all closed.
+    assert "timers.push(setTimeout(function () { setOpen(id); }, at + Math.round(move * 0.6)));" in html
+    assert "setOpen(null);                 // from here a cluster opens when it is pointed at" in html
+    # A re-drawn cluster keeps its state.
+    assert '(S.open === g.id && canOpen(g.id) ? " open" : "")' in html
+
+
+def test_wires_are_curves_in_the_color_of_their_variable():
+    html = _page_html()
+    assert '<line class="wire"' not in html, "no straight single-color wires"
+    assert "--wire:" not in html and "#E0261C" not in html
+    # Hub yellow at one end, the variable's color at the other.
+    assert '<stop class="from-hub" offset="0"/><stop offset="1" stop-color="\' + color + \'"/>' in html
+    assert ".wires .from-hub { stop-color: var(--crawl); }" in html
+    assert "var v = block.getAttribute(\"data-v\"), color = accent(v)" in html
+    for part in ("wglow", "wcore", "wflow", "wdot"):
+        assert f'class="{part}' in html, part
+    # Still lit by data-v, with the hub and its block.
+    assert '<g class="wire" data-v="' in html
+    # Movement is dropped for visitors who ask for less of it.
+    assert ".cluster.opening .block, .cluster.opening .wire *, .wire.hot .wflow { animation: none !important; }" in html
 
 
 def test_charts_panel_takes_two_fifths_of_a_laptop_window():

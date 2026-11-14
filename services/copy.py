@@ -152,6 +152,12 @@ COLOR_KEY_TITLE = "Color key"
 # Label of the faded sample in the color key.
 FADED_KEY_LABEL = "Faded: inconclusive"
 
+# Under the color key: how to open a region's variables on the globe.
+HUB_HINT = (
+    "Point at or tap a region's name to see its variables. Click a variable "
+    "for its chart."
+)
+
 CHART_GUIDE = (
     "Monthly values show the swings from season to season. Annual means "
     "average each calendar year. The fitted trend is the straight line that "

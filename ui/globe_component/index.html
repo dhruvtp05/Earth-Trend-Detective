@@ -14,9 +14,9 @@
        the text color; the arrow and the words give the direction. */
     --inc: #EAF0FA; --dec: #EAF0FA; --neu: #A7AEBA;
     --ink: #EAF0FA; --dim: #9AA6B8; --accent: #7FB2FF;
-    /* Dark green takes the place of black; yellow lettering and red wires. */
+    /* Dark green takes the place of black; yellow lettering. */
     --glass: rgba(6, 30, 20, 0.80); --line: rgba(255, 255, 255, 0.16);
-    --crawl: #FFE81F; --wire: #E0261C; --wire-hot: #FF4A3D;
+    --crawl: #FFE81F;
     --display: "Archivo Black", "Arial Black", Impact, "Franklin Gothic Heavy", sans-serif;
     --panel-w: clamp(380px, 40vw, 820px);   /* charts panel : globe = 40 : 60 */
   }
@@ -126,23 +126,60 @@
     display: inline-block; width: 56px; height: 13px; flex: none; border-radius: 3px;
     border: 1px solid rgba(255, 255, 255, 0.28);
   }
+  .khint { margin-top: 0.35rem; color: var(--ink); }
 
   /* ---- Region clusters pinned to the globe --------------------------------
      A hub with the region's name sits on the centre of its study area (the
-     area itself is not outlined). One
-     block per ticked variable sits around it, joined to the hub by a wire.
+     area itself is not outlined). Until the visitor points at the hub that
+     is all there is; then the cluster opens: one block per ticked variable
+     springs out around the hub, each joined to it by a wire.
      Sizes and positions are set in applyGeometry(). */
   .pin { width: 0; height: 0; }
   .cluster { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); pointer-events: none; }
-  .wires { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; }
-  .wire {
-    stroke: var(--wire); stroke-width: 2; stroke-linecap: round; opacity: 0.9;
-    transition: stroke 0.2s ease, stroke-width 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+  /* While open, the gaps between the hub and its blocks belong to the
+     cluster, so crossing them on the way to a block does not close it. */
+  .cluster.open { pointer-events: auto; }
+
+  /* A wire: a curve from the hub to a block that runs from the hub's
+     yellow into the block's own color, over a soft glow, with a bead at
+     each end. A lit wire carries a pulse from the hub to the block. */
+  .wires {
+    position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; z-index: 1;
+    pointer-events: none; opacity: 0; transition: opacity 0.2s ease;
   }
-  .wire.hot {
-    stroke: var(--wire-hot); stroke-width: 3.2; opacity: 1;
-    filter: drop-shadow(0 0 4px var(--wire-hot)) drop-shadow(0 0 11px rgba(255, 74, 61, 0.75));
+  .cluster.open .wires { opacity: 1; }
+  .wires .from-hub { stop-color: var(--crawl); }
+  .wire path { fill: none; stroke-linecap: round; }
+  .wglow { stroke: var(--c); stroke-width: 7; opacity: 0.2; transition: opacity 0.2s ease, stroke-width 0.2s ease; }
+  .wcore { stroke-width: 2.2; stroke-dasharray: 1; transition: stroke-width 0.2s ease; }
+  .wflow { stroke: #FFFFFF; stroke-width: 2.2; stroke-dasharray: 0.12 0.88; opacity: 0; }
+  .wdot {
+    fill: var(--c); stroke: rgba(2, 10, 6, 0.9); stroke-width: 1.5;
+    transform-box: fill-box; transform-origin: center; transition: transform 0.2s ease;
   }
+  .wdot.at-hub { fill: var(--crawl); }
+  .wire.hot .wglow { opacity: 0.45; stroke-width: 11; }
+  .wire.hot .wcore { stroke-width: 3; }
+  .wire.hot .wflow { opacity: 0.95; animation: wire-flow 1.1s linear infinite; }
+  .wire.hot .wdot { transform: scale(1.35); }
+  @keyframes wire-flow { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+
+  /* Opening: each block leaves the hub in turn and its wire is drawn out
+     to it. Played once, when the cluster goes from closed to open. */
+  .cluster.opening .block {
+    animation: block-out 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+    animation-delay: calc(var(--i, 0) * 45ms);
+  }
+  .cluster.opening .wcore { animation: wire-draw 0.42s ease-out backwards; animation-delay: calc(var(--i, 0) * 45ms); }
+  .cluster.opening .wglow, .cluster.opening .wdot {
+    animation: wire-fade 0.3s ease backwards; animation-delay: calc(var(--i, 0) * 45ms + 200ms);
+  }
+  @keyframes block-out {
+    from { opacity: 0; transform: translate(calc(var(--dx, 0px) * 0.6), calc(var(--dy, 0px) * 0.6)) scale(0.55); }
+  }
+  @keyframes wire-draw { from { stroke-dashoffset: 1; } }
+  @keyframes wire-fade { from { opacity: 0; } }
+
   /* The hub: 60% see-through dark green, lettering after the Star Wars logo. */
   .hub {
     position: absolute; pointer-events: auto; cursor: pointer; white-space: nowrap;
@@ -152,10 +189,17 @@
     letter-spacing: 0.07em; text-transform: uppercase; text-shadow: 0 1px 6px rgba(2, 10, 6, 0.9);
     transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
   }
-  .hub.hot, .hub.sel {
+  .hub.hot, .hub.sel, .cluster.open .hub {
     border-color: var(--crawl); background: rgba(8, 46, 30, 0.55);
     box-shadow: 0 0 0 1px rgba(255, 232, 31, 0.45), 0 0 22px rgba(255, 232, 31, 0.45);
   }
+  /* A small chevron says the hub opens; it turns over when it has. */
+  .hub .more {
+    display: inline-block; width: 0.42em; height: 0.42em; margin-left: 0.6em; vertical-align: 0.2em;
+    border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg);
+    transition: transform 0.25s ease;
+  }
+  .cluster.open .hub .more { transform: translateY(0.22em) rotate(-135deg); }
   /* A block: yearly stripes over one line of text, 20% see-through. */
   .block {
     position: absolute; pointer-events: auto; cursor: pointer; display: block; padding: 0; overflow: hidden;
@@ -164,6 +208,12 @@
     transition: opacity 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   }
   .block.hot { opacity: 1; border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 0 22px -2px var(--c); }
+  /* Closed: the blocks are folded back towards the hub, out of sight. */
+  .cluster:not(.open) .block {
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transform: translate(calc(var(--dx, 0px) * 0.6), calc(var(--dy, 0px) * 0.6)) scale(0.55);
+    transition: opacity 0.16s ease, transform 0.2s ease, visibility 0s 0.2s;
+  }
   .bars { display: flex; height: 44px; }
   .bars i { flex: 1 1 0; min-width: 0; }
   .cap { display: flex; align-items: center; gap: 0.42rem; padding: 0.3rem 0.5rem 0.34rem; font-size: 0.78rem; white-space: nowrap; }
@@ -186,7 +236,7 @@
   .cluster.compact .val, .cluster.mini .val, .cluster.mini .badge { display: none; }
   .cluster.mini .bars { height: 26px; }
   .cluster.mini .cap { font-size: 0.74rem; padding: 0.2rem 0.4rem 0.24rem; }
-  .cluster.hubonly .block, .cluster.hubonly .wires { display: none; }
+  .cluster.hubonly .block, .cluster.hubonly .wires, .cluster.hubonly .hub .more { display: none; }
   body.phone .hub { font-size: 0.92rem; padding: 0.6rem 0.9rem 0.52rem; }
   #measure { position: absolute; left: 0; top: 0; width: 2400px; visibility: hidden; pointer-events: none; }
   #measure .cluster { position: static; transform: none; }
@@ -303,11 +353,14 @@
   body.phone .ktitle { margin-bottom: 0.25rem; }
   body.phone .kitems { gap: 0.25rem 0.7rem; margin-bottom: 0.3rem; }
   body.phone .kramp { width: 30px; height: 11px; }
+  body.phone .khint { display: none; }
   body.phone .var { padding: 0.8rem 0.8rem 0.9rem; }
   body.no-globe .switch, body.no-globe #close { display: none; }
 
   @media (prefers-reduced-motion: reduce) {
-    #panel, #bar, #legend, #start, #title, .wire, .hub, .block, .var { transition: none !important; }
+    #panel, #bar, #legend, #start, #title, .wires, .wire *, .hub, .hub .more, .block, .var { transition: none !important; }
+    .cluster.opening .block, .cluster.opening .wire *, .wire.hot .wflow { animation: none !important; }
+    .wire.hot .wflow { opacity: 0; }
   }
 </style>
 </head>
@@ -386,6 +439,7 @@
     predictionMonths: 3,
     panel: false,
     style: "full",         // how much each block shows (see CLUSTER_STYLES)
+    open: null,            // region whose cluster is open: its blocks and wires show
     userMoved: false,      // the visitor has moved the camera since the last framing
     lastFrame: null,
     skippedAt: 0
@@ -516,8 +570,10 @@
 
   // --- Region clusters --------------------------------------------------------
   // Each region is drawn as a hub (its name) pinned to the centre of its
-  // study area, with one block per ticked variable around it and a wire from
-  // the hub's border to each block. Styles, most informative first: `full` blocks
+  // study area. Pointing at the hub opens the cluster: one block per ticked
+  // variable around the hub and a wire from the hub's border to each block
+  // (see "Opening a cluster"). The camera is framed for the open cluster,
+  // so it always has room. Styles, most informative first: `full` blocks
   // (stripes, name, trend, badge), `compact` (no trend value), `mini`
   // (stripes and name), then `hubonly` when even that does not fit. The
   // charts panel always has the full labels.
@@ -558,11 +614,12 @@
   }
 
   function clusterHtml(g) {
-    var selected = S.panel && S.region === g.id;
+    var selected = S.panel && S.region === g.id, ids = tickedIds(g.id);
     return '<svg class="wires" aria-hidden="true"></svg>' +
       '<button type="button" class="hub' + (selected ? " sel" : "") + '" title="' + esc(g.description) + '" aria-label="' +
-      esc(g.label + ": open charts and details") + '">' + esc(g.label) + "</button>" +
-      tickedIds(g.id).map(function (v) { return blockHtml(g, v); }).join("");
+      esc(g.label + ": open charts and details") + '">' + esc(g.label) +
+      (ids.length ? '<span class="more" aria-hidden="true"></span>' : "") + "</button>" +
+      ids.map(function (v) { return blockHtml(g, v); }).join("");
   }
 
   // Size of a cluster in one style, and where its blocks go. Blocks take
@@ -604,9 +661,42 @@
     return geo;
   }
 
+  // The line of a wire from the hub to the block in one slot, or null when
+  // the two touch. A block above or below the hub gets a curve that leaves
+  // the hub's upper or lower edge straight out and bends to meet the
+  // facing edge of the block, a little way in from its inner corner.
+  function wireRoute(geo, slot) {
+    var cx = geo.w / 2, cy = geo.h / 2;
+    function n(value) { return Number(value.toFixed(1)); }
+    var above = slot.y + geo.bh <= cy - geo.hh / 2, below = slot.y >= cy + geo.hh / 2;
+    if (above || below) {
+      var side = slot.x + geo.bw / 2 < cx ? -1 : 1;
+      var x1 = n(cx + side * geo.hw * 0.2), y1 = n(cy + (above ? -1 : 1) * geo.hh / 2);
+      var x2 = n((side < 0 ? slot.x + geo.bw : slot.x) + side * Math.min(geo.bw * 0.3, 46));
+      var y2 = n(above ? slot.y + geo.bh : slot.y);
+      var bend = n(y1 + (y2 - y1) * 0.62), back = n(y2 - (y2 - y1) * 0.62);
+      return {
+        x1: x1, y1: y1, x2: x2, y2: y2,
+        d: "M" + x1 + " " + y1 + "C" + x1 + " " + bend + " " + x2 + " " + back + " " + x2 + " " + y2
+      };
+    }
+    // Beside the hub: straight from the hub's border to the nearest point
+    // of the block, in line with the middle of the hub.
+    var tx = Math.max(slot.x, Math.min(cx, slot.x + geo.bw));
+    var ty = Math.max(slot.y, Math.min(cy, slot.y + geo.bh));
+    var dx = tx - cx, dy = ty - cy;
+    var reach = Math.min(
+      dx ? (geo.hw / 2) / Math.abs(dx) : Infinity,
+      dy ? (geo.hh / 2) / Math.abs(dy) : Infinity
+    );
+    if (!(reach < 1)) return null;
+    var sx = n(cx + dx * reach), sy = n(cy + dy * reach);
+    return { x1: sx, y1: sy, x2: n(tx), y2: n(ty), d: "M" + sx + " " + sy + "L" + n(tx) + " " + n(ty) };
+  }
+
   // Place the hub, the blocks and the wires inside a cluster element.
-  function applyGeometry(el, geo) {
-    var cx = geo.w / 2, cy = geo.h / 2, lines = "";
+  function applyGeometry(el, geo, regionId) {
+    var cx = geo.w / 2, cy = geo.h / 2, gradients = "", wires = "";
     el.style.width = geo.w + "px";
     el.style.height = geo.h + "px";
     var hub = el.querySelector(".hub");
@@ -618,36 +708,76 @@
       block.style.left = slot.x + "px";
       block.style.top = slot.y + "px";
       block.style.width = geo.bw + "px";
-      // The wire runs from the hub's border to the nearest point of the
-      // block, in line with the middle of the hub, so it covers neither.
-      var tx = Math.max(slot.x, Math.min(cx, slot.x + geo.bw));
-      var ty = Math.max(slot.y, Math.min(cy, slot.y + geo.bh));
-      var dx = tx - cx, dy = ty - cy;
-      var reach = Math.min(
-        dx ? (geo.hw / 2) / Math.abs(dx) : Infinity,
-        dy ? (geo.hh / 2) / Math.abs(dy) : Infinity
-      );
-      if (!(reach < 1)) return;                      // the block touches the hub: no wire to draw
-      lines += '<line class="wire" data-v="' + esc(block.getAttribute("data-v")) +
-        '" x1="' + (cx + dx * reach).toFixed(1) + '" y1="' + (cy + dy * reach).toFixed(1) +
-        '" x2="' + tx + '" y2="' + ty + '"/>';
+      // Where the block springs from when the cluster opens: towards the
+      // hub. `--i` staggers the blocks.
+      block.style.setProperty("--dx", (cx - (slot.x + geo.bw / 2)).toFixed(1) + "px");
+      block.style.setProperty("--dy", (cy - (slot.y + geo.bh / 2)).toFixed(1) + "px");
+      block.style.setProperty("--i", i);
+
+      var route = wireRoute(geo, slot);
+      if (!route) return;                            // the block touches the hub: no wire to draw
+      var v = block.getAttribute("data-v"), color = accent(v), paint = "wire-" + regionId + "-" + i;
+      // The wire's color runs along it, from the hub's yellow to the
+      // variable's color.
+      gradients += '<linearGradient id="' + esc(paint) + '" gradientUnits="userSpaceOnUse" x1="' + route.x1 +
+        '" y1="' + route.y1 + '" x2="' + route.x2 + '" y2="' + route.y2 + '">' +
+        '<stop class="from-hub" offset="0"/><stop offset="1" stop-color="' + color + '"/></linearGradient>';
+      wires += '<g class="wire" data-v="' + esc(v) + '" style="--c:' + color + ";--i:" + i + '">' +
+        '<path class="wglow" d="' + route.d + '"/>' +
+        '<path class="wcore" pathLength="1" stroke="url(#' + esc(paint) + ')" d="' + route.d + '"/>' +
+        '<path class="wflow" pathLength="1" d="' + route.d + '"/>' +
+        '<circle class="wdot at-hub" cx="' + route.x1 + '" cy="' + route.y1 + '" r="2.8"/>' +
+        '<circle class="wdot" cx="' + route.x2 + '" cy="' + route.y2 + '" r="4.2"/></g>';
     });
-    el.querySelector(".wires").innerHTML = lines;
+    el.querySelector(".wires").innerHTML = "<defs>" + gradients + "</defs>" + wires;
   }
 
   function renderClusters() {
     P.regions.forEach(function (g) {
       var el = clusters[g.id].el;
-      el.className = "cluster " + S.style;
+      el.className = "cluster " + S.style + (S.open === g.id && canOpen(g.id) ? " open" : "");
       el.innerHTML = clusterHtml(g);
-      applyGeometry(el, measureCluster(g, S.style));
+      applyGeometry(el, measureCluster(g, S.style), g.id);
     });
   }
 
-  // Scale and camera target at which the regions, with their clusters in
-  // one style, fit the free part of the window without the clusters
-  // touching. Pixels are measured from the reference point: x to the
-  // right, y upwards. `p` is pixels per radian on the ground.
+  // --- Opening a cluster ------------------------------------------------------
+  // A cluster shows only its hub until the visitor points at the hub, tabs
+  // to it, or taps it on a touch screen; then its blocks spring out. It
+  // closes a moment after the pointer leaves it, and one cluster is open
+  // at a time. Clicking the hub or a block opens the charts, as before.
+  var CLOSE_DELAY = 180;        // ms: long enough to cross from one part to the next
+  var closeTimer = 0, openingTimer = 0;
+
+  // Whether a region has blocks to show in the current style.
+  function canOpen(id) { return S.style !== "hubonly" && tickedIds(id).length > 0; }
+
+  function setOpen(id) {
+    clearTimeout(closeTimer);
+    if (id && !canOpen(id)) id = null;
+    if (S.open === id) return;
+    S.open = id;
+    P.regions.forEach(function (g) {
+      var el = clusters[g.id].el, on = g.id === id;
+      el.classList.toggle("open", on);
+      el.classList.toggle("opening", on);            // plays the entrance once
+    });
+    clearTimeout(openingTimer);
+    openingTimer = setTimeout(function () {
+      P.regions.forEach(function (g) { clusters[g.id].el.classList.remove("opening"); });
+    }, 1200);
+  }
+
+  function closeSoon(id) {
+    clearTimeout(closeTimer);
+    closeTimer = setTimeout(function () { if (S.open === id) setOpen(null); }, CLOSE_DELAY);
+  }
+
+  // Scale and camera target at which the regions fit the free part of the
+  // window with room for any one of their clusters to open, in one style,
+  // without covering another region's hub. Pixels are measured from the
+  // reference point: x to the right, y upwards. `p` is pixels per radian
+  // on the ground.
   function fitClusters(regions, L, style) {
     var pad = L.phone ? 12 : 30;
     var availW = L.w - 2 * pad, availH = L.h - 2 * pad;
@@ -688,15 +818,16 @@
     var scale = L.H / (2 * tanHalfFov());           // altitude = scale / p
     var low = scale / MAX_ALTITUDE, high = scale / MIN_ALTITUDE;
 
-    // Smallest scale at which no two clusters touch: they must be clear of
-    // each other either side by side or one above the other.
+    // Smallest scale at which an open cluster does not touch another
+    // region's hub: only one cluster is open at a time, so that is all it
+    // has to clear, either side by side or one above the other.
     var apart = low;
-    items.forEach(function (a, i) {
-      items.forEach(function (b, j) {
-        if (i >= j) return;
-        var dx = Math.abs(a.ux - b.ux), dy = Math.abs(a.uy - b.uy);
-        var sideBySide = dx > 1e-9 ? ((a.geo.w + b.geo.w) / 2 + CLUSTER_MARGIN) / dx : Infinity;
-        var stacked = dy > 1e-9 ? ((a.geo.h + b.geo.h) / 2 + CLUSTER_MARGIN) / dy : Infinity;
+    items.forEach(function (open, i) {
+      items.forEach(function (closed, j) {
+        if (i === j) return;
+        var dx = Math.abs(open.ux - closed.ux), dy = Math.abs(open.uy - closed.uy);
+        var sideBySide = dx > 1e-9 ? ((open.geo.w + closed.geo.hw) / 2 + CLUSTER_MARGIN) / dx : Infinity;
+        var stacked = dy > 1e-9 ? ((open.geo.h + closed.geo.hh) / 2 + CLUSTER_MARGIN) / dy : Infinity;
         apart = Math.max(apart, Math.min(sideBySide, stacked));
       });
     });
@@ -784,13 +915,39 @@
       if (next && next.closest && el.contains(next) && next.closest(".block, .hub")) return;
       setHot(el, null);
     }
-    el.addEventListener("pointerover", light);
-    el.addEventListener("pointerout", dim);
-    el.addEventListener("focusin", light);
-    el.addEventListener("focusout", dim);
-    el.addEventListener("click", function (event) {
+    function onHub(event) {
       var node = part(event);
+      return !!node && node.classList.contains("hub");
+    }
+    // A touch screen has no pointing: the first tap on a closed hub opens
+    // the cluster, and a tap on the open hub or a block opens the charts.
+    var press = null;
+    el.addEventListener("pointerdown", function (event) {
+      press = { touch: event.pointerType === "touch", wasOpen: S.open === g.id };
+    });
+    el.addEventListener("pointerover", function (event) {
+      light(event);
+      if (event.pointerType !== "touch" && onHub(event)) setOpen(g.id);
+    });
+    el.addEventListener("pointerout", dim);
+    el.addEventListener("pointerenter", function () { if (S.open === g.id) clearTimeout(closeTimer); });
+    el.addEventListener("pointerleave", function (event) {
+      // The tour opens and closes clusters itself.
+      if (event.pointerType !== "touch" && S.phase === "explore") closeSoon(g.id);
+    });
+    el.addEventListener("focusin", function (event) {
+      light(event);
+      if (part(event)) setOpen(g.id);
+    });
+    el.addEventListener("focusout", function (event) {
+      dim(event);
+      if (S.phase === "explore" && !(event.relatedTarget && el.contains(event.relatedTarget))) closeSoon(g.id);
+    });
+    el.addEventListener("click", function (event) {
+      var node = part(event), tap = press;
+      press = null;
       if (!node) return;
+      if (tap && tap.touch && !tap.wasOpen && onHub(event) && canOpen(g.id)) { setOpen(g.id); return; }
       openPanel(g.id, node.classList.contains("hub") ? null : node.getAttribute("data-v"));
     });
 
@@ -832,7 +989,8 @@
         rampCss(P.variables[0].id, "inconclusive") + '"></i>' + esc(P.text.faded_key) + "</span>");
     }
     legend.innerHTML = '<div class="ktitle">' + esc(P.text.color_key) + '</div><div class="kitems">' +
-      items.join("") + "</div><div>" + esc(P.text.stripes) + "</div>";
+      items.join("") + "</div><div>" + esc(P.text.stripes) + "</div>" +
+      (P.text.hub_hint ? '<div class="khint">' + esc(P.text.hub_hint) + "</div>" : "");
   }
 
   function renderTicks() {
@@ -1270,6 +1428,7 @@
     timers = [];
     allRegionIds().forEach(function (id) { if (S.shown.indexOf(id) < 0) S.shown.push(id); });
     S.phase = "explore";
+    setOpen(null);                 // from here a cluster opens when it is pointed at
     body.classList.remove("tour");
     body.classList.add("explore");
     var controls = globe.controls(), radius = globe.getGlobeRadius();
@@ -1293,6 +1452,8 @@
     allRegionIds().forEach(function (id, index) {
       var move = index === 0 ? FIRST_MOVE : MOVE;
       timers.push(setTimeout(function () { reveal(id); frame([id], move); }, at));
+      // Each stop shows what a hub holds: its cluster opens as the camera arrives.
+      timers.push(setTimeout(function () { setOpen(id); }, at + Math.round(move * 0.6)));
       at += move + HOLD;
     });
     timers.push(setTimeout(function () { finishTour(MOVE); }, at));
@@ -1433,6 +1594,10 @@
       toggle.checked = S.panel;
     });
     container.addEventListener("pointerdown", skipTour, true);
+    // A press anywhere else closes a cluster that a tap opened.
+    document.addEventListener("pointerdown", function (event) {
+      if (S.open && S.phase === "explore" && !(event.target.closest && event.target.closest(".cluster"))) setOpen(null);
+    }, true);
     window.addEventListener("keydown", function (event) {
       if (event.key !== "Escape") return;
       if (S.phase === "tour") skipTour(); else closePanel();
