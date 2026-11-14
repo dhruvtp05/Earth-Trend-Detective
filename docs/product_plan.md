@@ -79,21 +79,28 @@ the function body (including `band_lower` and `band_upper`, or leave them
 
 ## The globe screen
 
-1. Idle: the globe spins slowly; the only control is Start.
+1. Idle: the globe spins slowly under the app title; the only control is Start.
 2. Tour: the camera eases to the Southwest, then the Midwest, then frames
    both. A click, tap or Esc skips it.
 3. Explore: each region shows one row of yearly stripes per ticked variable
    (brightness = yearly average; amber = increase, violet = decrease, gray =
    interval includes zero) and a label with the trend value, unit and a
-   "Significant" or "Inconclusive" badge. Controls: one tick box per variable
-   and the "Charts & details" switch.
-4. Charts panel (click a region or use the switch): region tabs, then for each
-   ticked variable the monthly values, annual means, fitted trend and
-   confidence band, the interval and conclusion sentences, dataset facts, the
-   Giovanni link and a table of yearly values. Close returns to the globe.
+   "Significant" or "Inconclusive" badge. A color key shows the three color
+   scales. Controls: one tick box per variable and the "Charts & details"
+   switch.
+4. Charts panel (click a region or use the switch; about 40% of a laptop
+   window, a bottom sheet on a phone): region tabs, an "At a glance" line per
+   ticked variable in plain words, then one card per variable with its
+   definition, headline ("Upward trend", "Downward trend" or "No clear
+   trend"), trend value, chart (monthly values, annual means, fitted trend,
+   confidence band) and a "What this means" box with the conclusion and
+   interval sentences. Dataset facts, the Giovanni link and the yearly values
+   are folded under each card. Close returns to the globe.
 
-Rule for colour and badge: a direction is shown only when the 95% confidence
-interval excludes zero (`services/copy.trend_direction`). On narrow screens the
+Rule for color, badge and headline: a direction is shown only when the 95%
+confidence interval excludes zero (`services/copy.trend_direction`). "No clear
+trend" means the data cannot tell a rise from a fall; it is never worded as
+"no change". On narrow screens the
 labels shorten to the row names when both regions are in view; the full label
 shows at each tour stop and in the panel.
 

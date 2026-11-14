@@ -1,10 +1,13 @@
 """
 Page-level styling: the globe fills the whole browser window.
 
-Streamlit's header, toolbar, footer and page padding are hidden, and the
-globe component's frame is pinned to the viewport. The selectors below
-are Streamlit's own element names, which is why requirements.txt pins the
+Streamlit's header, toolbar and footer are hidden, and the globe
+component's frame is pinned to the viewport. The selectors below are
+Streamlit's own element names, which is why requirements.txt pins the
 Streamlit version: check this file when upgrading.
+
+Page padding and colours are not set here: they are theme options in
+.streamlit/config.toml.
 """
 
 from __future__ import annotations
@@ -26,9 +29,6 @@ header, footer, #MainMenu,
 [data-testid="stSidebarCollapsedControl"], [data-testid="stBottom"] {{
     display: none !important;
 }}
-[data-testid="stMainBlockContainer"], .block-container {{
-    padding: 0 !important; margin: 0 !important; max-width: none !important;
-}}
 .st-key-{STAGE_KEY} iframe {{
     position: fixed !important;
     top: 0; left: 0;
@@ -44,4 +44,4 @@ header, footer, #MainMenu,
 
 def fullscreen_page() -> None:
     """Remove the page chrome and pin the globe to the viewport."""
-    st.markdown(f"<style>{_FULLSCREEN}</style>", unsafe_allow_html=True)
+    st.html(f"<style>{_FULLSCREEN}</style>")
