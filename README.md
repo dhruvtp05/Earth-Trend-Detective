@@ -23,7 +23,7 @@ For each region and variable, the app answers:
 1. The globe spins slowly under the app title, with a single **Start** button.
 2. Start moves the camera to the Southwest (Region A), then the Midwest
    (Region B), then settles on both. A click, tap or Esc skips ahead.
-3. Each region is a hub with its name, pinned to the middle of its study box,
+3. Each region is a hub with its name, pinned to the middle of its study area,
    with one block per ticked variable around it and a red wire from the hub to
    each block. A block is a row of yearly stripes, one stripe per year, over a
    line with the variable's name, its trend and a "Significant" or

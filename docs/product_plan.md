@@ -82,7 +82,7 @@ the function body (including `band_lower` and `band_upper`, or leave them
 1. Idle: the globe spins slowly under the app title; the only control is Start.
 2. Tour: the camera eases to the Southwest, then the Midwest, then frames
    both. A click, tap or Esc skips it.
-3. Explore: each region is a hub (its name) on the middle of its study box,
+3. Explore: each region is a hub (its name) on the middle of its study area,
    with one block per ticked variable around it, joined by red wires. A block
    is a row of yearly stripes (brightness = yearly average) over the
    variable's name, trend value and unit, and a "Significant" or

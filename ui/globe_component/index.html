@@ -128,7 +128,8 @@
   }
 
   /* ---- Region clusters pinned to the globe --------------------------------
-     A hub with the region's name sits on the centre of its study box. One
+     A hub with the region's name sits on the centre of its study area (the
+     area itself is not outlined). One
      block per ticked variable sits around it, joined to the hub by a wire.
      Sizes and positions are set in applyGeometry(). */
   .pin { width: 0; height: 0; }
@@ -189,11 +190,6 @@
   body.phone .hub { font-size: 0.92rem; padding: 0.6rem 0.9rem 0.52rem; }
   #measure { position: absolute; left: 0; top: 0; width: 2400px; visibility: hidden; pointer-events: none; }
   #measure .cluster { position: static; transform: none; }
-
-  .tip {
-    padding: 0.4rem 0.6rem; border-radius: 8px; font-size: 0.82rem; line-height: 1.35; color: var(--ink);
-    background: rgba(6, 30, 20, 0.95); border: 1px solid var(--line);
-  }
 
   /* ---- Charts and details panel ----------------------------------------- */
   #panel {
@@ -428,18 +424,6 @@
     return hslHex(c[0], c[1], c[2] + c[3] * 0.72);
   }
 
-  // Outline of a latitude/longitude box, with a point every degree so the
-  // edges follow the parallels and meridians. Clockwise, as d3-geo expects.
-  function boxRing(west, south, east, north) {
-    var points = [], v;
-    for (v = south; v < north; v += 1) points.push([west, v]);
-    for (v = west; v < east; v += 1) points.push([v, north]);
-    for (v = north; v > south; v -= 1) points.push([east, v]);
-    for (v = east; v > west; v -= 1) points.push([v, south]);
-    points.push([west, south]);
-    return points;
-  }
-
   function region(id) {
     for (var i = 0; i < P.regions.length; i++) if (P.regions[i].id === id) return P.regions[i];
     return null;
@@ -529,8 +513,8 @@
 
   // --- Region clusters --------------------------------------------------------
   // Each region is drawn as a hub (its name) pinned to the centre of its
-  // study box, with one block per ticked variable around it and a wire from
-  // the hub to each block. Styles, most informative first: `full` blocks
+  // study area, with one block per ticked variable around it and a wire from
+  // the hub's border to each block. Styles, most informative first: `full` blocks
   // (stripes, name, trend, badge), `compact` (no trend value), `mini`
   // (stripes and name), then `hubonly` when even that does not fit. The
   // charts panel always has the full labels.
@@ -573,7 +557,7 @@
   function clusterHtml(g) {
     var selected = S.panel && S.region === g.id;
     return '<svg class="wires" aria-hidden="true"></svg>' +
-      '<button type="button" class="hub' + (selected ? " sel" : "") + '" aria-label="' +
+      '<button type="button" class="hub' + (selected ? " sel" : "") + '" title="' + esc(g.description) + '" aria-label="' +
       esc(g.label + ": open charts and details") + '">' + esc(g.label) + "</button>" +
       tickedIds(g.id).map(function (v) { return blockHtml(g, v); }).join("");
   }
@@ -631,10 +615,18 @@
       block.style.left = slot.x + "px";
       block.style.top = slot.y + "px";
       block.style.width = geo.bw + "px";
-      // The wire runs from the middle of the hub to the nearest point of the block.
+      // The wire runs from the hub's border to the nearest point of the
+      // block, in line with the middle of the hub, so it covers neither.
       var tx = Math.max(slot.x, Math.min(cx, slot.x + geo.bw));
       var ty = Math.max(slot.y, Math.min(cy, slot.y + geo.bh));
-      lines += '<line class="wire" data-v="' + esc(block.getAttribute("data-v")) + '" x1="' + cx + '" y1="' + cy +
+      var dx = tx - cx, dy = ty - cy;
+      var reach = Math.min(
+        dx ? (geo.hw / 2) / Math.abs(dx) : Infinity,
+        dy ? (geo.hh / 2) / Math.abs(dy) : Infinity
+      );
+      if (!(reach < 1)) return;                      // the block touches the hub: no wire to draw
+      lines += '<line class="wire" data-v="' + esc(block.getAttribute("data-v")) +
+        '" x1="' + (cx + dx * reach).toFixed(1) + '" y1="' + (cy + dy * reach).toFixed(1) +
         '" x2="' + tx + '" y2="' + ty + '"/>';
     });
     el.querySelector(".wires").innerHTML = lines;
@@ -761,19 +753,6 @@
   }
 
   // --- Data on the globe ------------------------------------------------------
-  // The study box of each revealed region, outlined on the globe.
-  function buildPolygons() {
-    return P.regions
-      .filter(function (g) { return S.shown.indexOf(g.id) >= 0; })
-      .map(function (g) {
-        return {
-          region: g.id, selected: S.panel && S.region === g.id,
-          tip: '<div class="tip"><b>' + esc(g.label) + "</b><br>" + esc(g.description) + "</div>",
-          geometry: { type: "Polygon", coordinates: [boxRing(g.west, g.south, g.east, g.north)] }
-        };
-      });
-  }
-
   // Light up part of a cluster. `v` is a variable id (that block, its wire
   // and the hub), "*" (the hub, every wire and every block) or null.
   function setHot(el, v) {
@@ -821,7 +800,6 @@
   function renderGlobeData() {
     if (!globe) return;
     renderClusters();
-    globe.polygonsData(buildPolygons());
     showClusters();
   }
 
@@ -1240,15 +1218,6 @@
       .atmosphereAltitude(0.17)
       .width(window.innerWidth)
       .height(window.innerHeight)
-      .polygonsData([])
-      // The study boxes: a light green wash with a clear outline.
-      .polygonCapColor(function () { return "rgba(8,46,30,0.30)"; })
-      .polygonSideColor(function () { return "rgba(0,0,0,0)"; })
-      .polygonStrokeColor(function (d) { return d.selected ? "#FFE81F" : "rgba(255,255,255,0.75)"; })
-      .polygonAltitude(0.005)
-      .polygonsTransitionDuration(0)
-      .polygonLabel(function (d) { return d.tip; })
-      .onPolygonHover(function (d) { container.style.cursor = d ? "pointer" : "grab"; })
       .htmlElementsData([])
       .htmlLat(function (d) { return d.lat; })
       .htmlLng(function (d) { return d.lng; })
