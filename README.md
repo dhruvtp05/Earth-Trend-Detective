@@ -2,9 +2,9 @@
 
 **Explore Earth's changing water systems through NASA Earth science data.**
 
-Earth Trend Detective is an interactive geospatial visualization platform that helps users investigate long-term environmental changes across selected regions of the United States. By combining NASA satellite-derived observations, land-surface model outputs, historical trend analysis, and experimental forecasting, the project makes complex Earth science data easier to explore and interpret.
+Earth Trend Detective is an interactive geospatial visualization platform designed to help users investigate long-term environmental changes across selected regions of the United States. By combining NASA Earth science datasets, historical trend analysis, and experimental forecasting, the project makes complex environmental data easier to explore and understand.
 
-Built for the **2026 NASA Space Apps Challenge** — *Be An Earth System Trend Detective!*
+Built for the **2026 NASA Space Apps Challenge**.
 
 <p align="center">
   <a href="https://earthdetective.us/"><strong>🌐 Explore the Live Application</strong></a>
@@ -16,7 +16,7 @@ Built for the **2026 NASA Space Apps Challenge** — *Be An Earth System Trend D
 
 Environmental changes are rarely explained by a single measurement. Precipitation, evaporation, soil moisture, and surface runoff interact to shape regional water conditions.
 
-Earth Trend Detective brings these variables together in an interactive 3D globe, allowing users to explore how regional water-related conditions have changed over time and examine experimental projections of future monthly conditions.
+Earth Trend Detective brings these variables together in an interactive 3D globe, allowing users to explore how regional environmental conditions have changed over time and examine experimental projections of future conditions.
 
 The application focuses on five questions:
 
@@ -53,7 +53,7 @@ Explore historical monthly observations and annual summaries for each variable.
 
 The Prediction interface provides experimental monthly projections for selected environmental variables.
 
-- Three-, six-, and twelve-month projection windows.
+- Three, six, and twelve-month projection windows.
 - Seasonal baseline and damped seasonal-trend model comparison.
 - Predicted monthly medians and prediction intervals.
 - Rolling-origin model evaluation.
@@ -69,26 +69,30 @@ The current implementation focuses on two study regions in the United States.
 
 | Region | Description | Approximate bounding box |
 |---|---|---|
-| Southwest (Region A) | Colorado River Basin area, including Arizona | 31°N–40°N, 115°W–106°W |
-| Midwest (Region B) | Great Lakes region, including Chicago | 40°N–49°N, 93°W–76°W |
+| Southwest (Region A) | Colorado River Basin area, including Arizona | 31°N to 40°N, 115°W to 106°W |
+| Midwest (Region B) | Great Lakes region, including Chicago | 40°N to 49°N, 93°W to 76°W |
 
 These bounding boxes define rectangular regional study areas rather than individual cities, weather stations, or administrative boundaries.
 
 The application uses area-averaged environmental data. Consequently, its values represent broader regional conditions rather than measurements at a specific location.
 
-Additional regions and variables can be incorporated through the existing dataset discovery and catalog architecture.
+Additional regions and variables can be incorporated through the existing dataset catalog architecture.
 
 ---
 
 ## NASA Data Sources
 
-Earth Trend Detective uses two primary NASA Earth science data products:
+Earth Trend Detective uses two primary NASA Earth science data products.
 
-**1. MERRA-2 — Modern-Era Retrospective Analysis for Research and Applications, Version 2**
+### 1. MERRA-2
+
+**Modern-Era Retrospective Analysis for Research and Applications, Version 2**
 
 MERRA-2 is a NASA atmospheric reanalysis that combines observations with a numerical weather prediction system to produce a consistent representation of historical atmospheric conditions.
 
-**2. GLDAS — Global Land Data Assimilation System**
+### 2. GLDAS
+
+**Global Land Data Assimilation System**
 
 GLDAS combines satellite and ground-based observations with land-surface modeling to estimate terrestrial water and energy conditions.
 
@@ -96,14 +100,14 @@ The application currently uses monthly, area-averaged time series retrieved thro
 
 ### Dataset Inventory
 
-| Environmental variable | NASA product | Variable identifier | Product version | Current data period |
+| Environmental variable | NASA product | Variable identifier | Product version | Documented data period |
 |---|---|---|---|---|
-| Precipitation | MERRA-2 M2TMNXFLX | PRECTOTCORR | 5.12.4 | 2005–2025 |
-| Land evaporation | MERRA-2 M2TMNXLND | EVLAND | 5.12.4 | 2005–2025 |
-| Topsoil moisture (0–10 cm) | GLDAS Noah GLDAS_NOAH025_M | SoilMoi0_10cm_inst | 2.1 | 2000–2025 |
-| Storm surface runoff | GLDAS Noah GLDAS_NOAH025_M | Qs_acc | 2.1 | 2000–2025 |
+| Precipitation | MERRA-2 M2TMNXFLX | PRECTOTCORR | 5.12.4 | 2005 to 2025 |
+| Land evaporation | MERRA-2 M2TMNXLND | EVLAND | 5.12.4 | 2005 to 2025 |
+| Topsoil moisture (0 to 10 cm) | GLDAS Noah GLDAS_NOAH025_M | SoilMoi0_10cm_inst | 2.1 | 2000 to 2025 |
+| Storm surface runoff | GLDAS Noah GLDAS_NOAH025_M | Qs_acc | 2.1 | 2000 to 2025 |
 
-The periods above describe the currently documented dataset coverage. Individual regional exports determine the observations actually available for analysis.
+The periods above describe the documented dataset coverage. Individual regional exports determine the observations actually available for analysis.
 
 ### Spatial and Temporal Resolution
 
@@ -185,7 +189,7 @@ Earth Trend Detective separates historical trend analysis from future prediction
 
 The historical analysis interface summarizes long-term changes in the selected environmental variables.
 
-The current implementation in [`services/section_b.py`](services/section_b.py) is a provisional statistical stand-in:
+The current implementation in [`services/section_b.py`](services/section_b.py) is a provisional statistical implementation:
 
 1. Retain calendar years containing all twelve monthly observations.
 2. Calculate the annual mean from the twelve monthly values.
@@ -296,7 +300,7 @@ For the complete explanation of model assumptions, evaluation, and probability a
 
 Earth Trend Detective is built using Python and Streamlit, with an interactive browser-based 3D globe.
 
-The Python application prepares the data and analysis results, then sends a payload to the browser component. User interactions with the globe and charts are handled in the browser without requiring a complete Streamlit page reload for every interaction.
+The Python application prepares the data and analysis results, then sends a payload to the browser component. User interactions with the globe and charts are handled in the browser.
 
 ### Technology Stack
 
@@ -328,157 +332,4 @@ nasa-space-apps-team-unemployed/
 │   ├── copy.py
 │   └── prediction.py
 │
-├── ui/
-│   ├── globe.py
-│   ├── theme.py
-│   └── globe_component/
-│       └── index.html
-│
-├── tests/
-│
-├── docs/
-│   └── prediction_method.md
-│
-├── .streamlit/
-│   └── config.toml
-│
-├── requirements.txt
-└── README.md
-```
-
-### Main Components
-
-- `app.py`: Application entry point.
-- `services/catalog.py`: Central catalog of environmental variables, datasets, regions, and metadata.
-- `services/section_a.py`: Reads and processes saved NASA Giovanni exports.
-- `services/section_b.py`: Historical trend estimation and uncertainty calculations.
-- `services/investigate.py`: Coordinates data processing and analysis for the application.
-- `services/copy.py`: Centralizes scientific explanations and result wording.
-- `services/prediction.py`: Experimental forecasting and predictive distribution calculations.
-- `ui/globe.py`: Prepares application data and renders the interactive globe.
-- `ui/globe_component/`: Browser-based globe visualization.
-- `tests/`: Automated tests for data processing, statistical methods, scientific wording, and application payloads.
-- `docs/`: Additional technical and methodological documentation.
-
----
-
-## Installation and Local Development
-
-### Requirements
-
-- Python 3.12
-- pip
-- Git
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/dhruvtp05/nasa-space-apps-team-unemployed.git
-
-cd nasa-space-apps-team-unemployed
-```
-
-### 2. Create a Virtual Environment
-
-**Windows (PowerShell):**
-
-```powershell
-py -3.12 -m venv .venv
-
-.\.venv\Scripts\Activate.ps1
-```
-
-**Linux / macOS:**
-
-```bash
-python3.12 -m venv .venv
-
-source .venv/bin/activate
-```
-
-### 3. Install Dependencies
-
-```bash
-python -m pip install --upgrade pip
-
-pip install -r requirements.txt
-```
-
-### 4. Run the Application
-
-```bash
-streamlit run app.py
-```
-
-Open the local URL provided by Streamlit, normally:
-
-```text
-http://localhost:8501
-```
-
-### 5. Run Tests
-
-Install pytest if it is not already available:
-
-```bash
-pip install pytest
-```
-
-Run the test suite:
-
-```bash
-python -m pytest
-```
-
----
-
-## Deployment
-
-The public application is hosted on Render, with its custom domain managed through Porkbun DNS.
-
-**Live application:** https://earthdetective.us/
-
-The source code and deployment repository are maintained on GitHub:
-
-https://github.com/dhruvtp05/nasa-space-apps-team-unemployed
-
----
-
-## AI Use Disclosure
-
-AI-assisted development tools were used during the planning, implementation, and testing of the application.
-
-Cursor was used to assist with interface development, application code, and automated tests.
-
-NASA datasets were selected and retrieved by team members through NASA Giovanni. Team members review the application's scientific explanations, data interpretation, and communication of uncertainty.
-
-AI assistance does not replace scientific validation or independent verification of the underlying data and statistical methods.
-
----
-
-## Acknowledgments and Data Resources
-
-We acknowledge NASA and its Earth science data infrastructure for providing the publicly accessible datasets used in this project.
-
-- [NASA Giovanni](https://giovanni.gsfc.nasa.gov/giovanni/) — Environmental data discovery, analysis, and retrieval.
-- [NASA MERRA-2](https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/) — Atmospheric reanalysis.
-- [NASA GLDAS](https://ldas.gsfc.nasa.gov/gldas) — Global land data assimilation and land-surface modeling.
-- [NASA GLDAS Model Output](https://ldas.gsfc.nasa.gov/gldas/model-output) — Variable definitions and product information.
-
-Additional methodology reference:
-
-- [Forecasting: Principles and Practice — Forecasting Toolbox](https://otexts.com/fpp3/toolbox.html)
-
----
-
-## License
-
-A project license has not yet been selected.
-
-Until a license is added to the repository, the code should not be assumed to be available for unrestricted reuse, modification, or redistribution. NASA dataset usage remains subject to the applicable NASA data and media usage guidelines.
-
----
-
-**Earth Trend Detective**  
-*Exploring environmental change through NASA Earth science data.*
-
+├── ui
