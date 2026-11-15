@@ -14,10 +14,6 @@ For each region and variable, the app answers:
 - How uncertain is the estimated trend?
 - What can we reasonably conclude?
 
-> **Status:** the data is real NASA data. The trend numbers are provisional:
-> they come from a placeholder method until the team's statistical analysis is
-> integrated. Historical details explain this; the Prediction tab contains a
-> separate experimental forecasting method.
 
 ## How it works
 
