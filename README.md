@@ -7,7 +7,9 @@ Earth Trend Detective is an interactive geospatial visualization platform design
 Built for the **2026 NASA Space Apps Challenge**.
 
 <p align="center">
-  <a href="https://earthdetective.us/"><strong>🌐 Explore the Live Application</strong></a>
+  <a href="https://earthdetective.us/">
+    <strong>🌐 Explore the Live Application</strong>
+  </a>
 </p>
 
 ---
@@ -128,21 +130,21 @@ Displayed in millimeters per day (mm/day).
 
 Represents water transferred from land surfaces to the atmosphere through evaporation and related land-surface processes.
 
-The application currently applies a multiplier of 86,400 to the source values to display them in mm/day. This conversion follows the documented kg/m²/s unit, but the original export's unit metadata still requires confirmation.
+The application currently applies a multiplier of 86,400 to the source values to display them in mm/day. This conversion follows the documented kg/m²/s unit. The original export metadata should be checked to confirm that the retrieved values use the expected source units.
 
 **Soil Moisture (SoilMoi0_10cm_inst)**
 
 Represents the amount of water stored in the upper 10 centimeters of soil.
 
-The documented product unit is kg/m². Confirmation against the original export metadata remains pending.
+The documented product unit is kg/m². The original export metadata should be checked to confirm the unit of the retrieved values.
 
 **Storm Surface Runoff (Qs_acc)**
 
 Represents water moving across the land surface rather than infiltrating into the soil.
 
-The documented GLDAS monthly product unit is kg/m² per 3 hours. Confirmation against the original export metadata remains pending.
+The documented GLDAS monthly product unit is kg/m² per 3-hour interval. The temporal accumulation convention should be considered when interpreting or converting these values.
 
-For complete variable definitions and unit handling, see [`services/catalog.py`](services/catalog.py).
+For complete variable definitions, source units, and application scaling, see `services/catalog.py`.
 
 ---
 
@@ -189,7 +191,7 @@ Earth Trend Detective separates historical trend analysis from future prediction
 
 The historical analysis interface summarizes long-term changes in the selected environmental variables.
 
-The current implementation in [`services/section_b.py`](services/section_b.py) is a provisional statistical implementation:
+The current implementation in `services/section_b.py` uses a provisional statistical approach:
 
 1. Retain calendar years containing all twelve monthly observations.
 2. Calculate the annual mean from the twelve monthly values.
@@ -212,7 +214,7 @@ An inconclusive result does not establish that no environmental change occurred.
 
 Statistical significance also does not necessarily imply practical or environmental importance.
 
-**Methodology status:** The current historical trend implementation is explicitly marked as a placeholder pending replacement with the finalized analysis methodology. Historical trend values should therefore be interpreted as provisional rather than definitive scientific findings.
+**Methodology status:** Historical trend results are provisional and should not be interpreted as definitive scientific findings.
 
 ### Scientific Communication
 
@@ -233,9 +235,9 @@ It does not:
 
 The Prediction interface provides experimental monthly projections using the saved historical observations.
 
-Implementation: [`services/prediction.py`](services/prediction.py)
+Implementation: `services/prediction.py`
 
-Detailed methodology: [`docs/prediction_method.md`](docs/prediction_method.md)
+Detailed methodology: `docs/prediction_method.md`
 
 ### Forecasting Models
 
@@ -292,7 +294,7 @@ Future projections are subject to several limitations:
 
 The projections should be interpreted as experimental statistical estimates rather than operational forecasts.
 
-For the complete explanation of model assumptions, evaluation, and probability availability, see [`docs/prediction_method.md`](docs/prediction_method.md).
+For the complete explanation of model assumptions, evaluation, and probability availability, see `docs/prediction_method.md`.
 
 ---
 
@@ -319,6 +321,8 @@ The Python application prepares the data and analysis results, then sends a payl
 nasa-space-apps-team-unemployed/
 │
 ├── app.py
+├── requirements.txt
+├── README.md
 │
 ├── data/
 │   └── Saved NASA Giovanni CSV exports
@@ -332,4 +336,94 @@ nasa-space-apps-team-unemployed/
 │   ├── copy.py
 │   └── prediction.py
 │
-├── ui
+├── docs/
+│   └── prediction_method.md
+│
+├── tests/
+│
+├── ui/
+│
+└── .streamlit/
+```
+
+---
+
+## Running Locally
+
+### Requirements
+
+- Python 3.12
+- Git
+- pip
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/dhruvtp05/nasa-space-apps-team-unemployed.git
+cd nasa-space-apps-team-unemployed
+```
+
+### 2. Create a Virtual Environment
+
+**Windows:**
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+**macOS / Linux:**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 3. Install Dependencies
+
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 4. Start the Application
+
+```bash
+streamlit run app.py
+```
+
+Streamlit will provide a local URL, typically:
+
+```text
+http://localhost:8501
+```
+
+The application uses the saved datasets in the repository's `data/` directory.
+
+---
+
+## Testing
+
+Run the project's automated tests from the repository root:
+
+```bash
+python -m pytest
+```
+
+The test suite and its development dependencies should be configured in the repository before relying on this command.
+
+---
+
+## Project Links
+
+- **Live Application:** [https://earthdetective.us/](https://earthdetective.us/)
+- **Source Code:** [GitHub Repository](https://github.com/dhruvtp05/nasa-space-apps-team-unemployed)
+- **NASA Giovanni:** [https://giovanni.gsfc.nasa.gov/giovanni/](https://giovanni.gsfc.nasa.gov/giovanni/)
+
+---
+
+## Acknowledgments
+
+This project uses NASA Earth science data products, including MERRA-2 and GLDAS, accessed through NASA Giovanni.
+
+The project was developed for the **2026 NASA Space Apps Challenge**.
